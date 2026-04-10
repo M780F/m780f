@@ -1,0 +1,5 @@
+{
+  "name": "m780f",
+  "description": "A web-based Microsoft Word simulator with a ribbon interface, document editor, and on-screen keyboard, optimized for mobile.",
+  "requestFramePermissions": []
+}
