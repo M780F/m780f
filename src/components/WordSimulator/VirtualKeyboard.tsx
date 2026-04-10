@@ -86,31 +86,31 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ onKeyClick, on
           </Button>
         </div>
       </div>
-      <div className="flex flex-col gap-0.5 sm:gap-1">
+      <div className="flex flex-col gap-1 sm:gap-1.5">
         {rows.map((row, i) => (
-          <div key={i} className="flex justify-center gap-0.5 sm:gap-1">
+          <div key={i} className="flex justify-center gap-0.5 sm:gap-1 w-full px-0.5">
             {row.map((key, j) => {
               const isSpecial = ['Backspace', 'Enter', 'Shift', 'Space', 'Tab', 'CapsLock', 'Ctrl', 'Alt', 'Esc', 'Left', 'Right', 'Up', 'Down'].includes(key);
               
-              // Responsive widths and heights
-              let width = 'w-6 sm:w-10 md:w-12';
-              let height = 'h-6 sm:h-10'; // Further reduced height for better landscape fit
+              // Responsive widths and heights - optimized for mobile fit
+              let width = 'flex-1 min-w-[22px] max-w-[40px] sm:w-10 md:w-12';
+              let height = 'h-11 sm:h-12'; 
               
-              if (key === 'Backspace') width = 'w-10 sm:w-20';
-              if (key === 'Enter') width = 'w-10 sm:w-20';
-              if (key === 'Shift') width = 'w-10 sm:w-20';
-              if (key === 'CapsLock') width = 'w-10 sm:w-20';
-              if (key === 'Tab') width = 'w-8 sm:w-14';
-              if (key === 'Ctrl' || key === 'Alt') width = 'w-8 sm:w-14';
-              if (key === 'Space') width = 'w-24 sm:w-64 md:w-80';
-              if (['Left', 'Right', 'Up', 'Down'].includes(key)) width = 'w-5 sm:w-10';
-              if (key === 'Esc') width = 'w-8 sm:w-12';
+              if (key === 'Backspace') width = 'flex-[1.5] min-w-[45px] sm:w-20';
+              if (key === 'Enter') width = 'flex-[1.5] min-w-[45px] sm:w-20';
+              if (key === 'Shift') width = 'flex-[1.5] min-w-[45px] sm:w-20';
+              if (key === 'CapsLock') width = 'flex-[1.5] min-w-[45px] sm:w-20';
+              if (key === 'Tab') width = 'flex-1 min-w-[35px] sm:w-14';
+              if (key === 'Ctrl' || key === 'Alt') width = 'flex-1 min-w-[35px] sm:w-14';
+              if (key === 'Space') width = 'flex-[4] min-w-[120px] sm:w-64 md:w-80';
+              if (['Left', 'Right', 'Up', 'Down'].includes(key)) width = 'flex-1 min-w-[25px] sm:w-10';
+              if (key === 'Esc') width = 'flex-1 min-w-[30px] sm:w-12';
 
               return (
                 <Button
                   key={j}
                   variant={isSpecial ? "secondary" : "outline"}
-                  className={`${width} ${height} p-0 text-[8px] sm:text-sm font-medium shadow-sm hover:bg-gray-100 active:scale-95 transition-all rounded-sm`}
+                  className={`${width} ${height} p-0 text-[11px] sm:text-sm font-bold shadow-sm hover:bg-gray-100 active:scale-95 active:bg-blue-100 transition-all rounded-md border-gray-300`}
                   onClick={() => handleKey(key)}
                 >
                   {getKeyLabel(key)}

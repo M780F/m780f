@@ -8,25 +8,9 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 export default function App() {
   const [content, setContent] = useState('');
   const [selection, setSelection] = useState<Selection | null>(null);
-  const [showKeyboard, setShowKeyboard] = useState(false);
+  const [showKeyboard, setShowKeyboard] = useState(true);
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
-
-  // Auto-collapse ribbon in landscape when keyboard is open
-  useEffect(() => {
-    const handleResize = () => {
-      const isLandscape = window.innerWidth > window.innerHeight;
-      if (isLandscape && showKeyboard) {
-        setIsRibbonCollapsed(true);
-      } else if (!showKeyboard) {
-        setIsRibbonCollapsed(false);
-      }
-    };
-    
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [showKeyboard]);
 
   // Track selection to enable/disable toolbar buttons
   useEffect(() => {
@@ -152,7 +136,7 @@ export default function App() {
 
         {/* Virtual Keyboard */}
         {showKeyboard && (
-          <div className="bg-white border-t border-gray-200 p-0.5 sm:p-2 animate-in slide-in-from-bottom duration-300 shadow-2xl z-20">
+          <div className="bg-white border-t border-gray-300 p-1 sm:p-4 animate-in slide-in-from-bottom duration-300 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.1)] z-20">
             <VirtualKeyboard onKeyClick={handleKeyClick} onClose={() => setShowKeyboard(false)} />
           </div>
         )}
