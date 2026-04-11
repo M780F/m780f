@@ -69,7 +69,7 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
       return;
     }
 
-    if (key === 'Tab' && isAltActive) {
+    if (key === 'Shift' && isAltActive) {
       onLanguageToggle();
       setIsAltActive(false);
       return;
