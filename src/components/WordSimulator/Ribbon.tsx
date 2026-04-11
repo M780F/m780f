@@ -2,7 +2,8 @@ import React from 'react';
 import { 
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Type, List, ListOrdered, Image as ImageIcon, Table as TableIcon,
-  Keyboard, Save, Undo, Redo, Search, Printer, FileText, ChevronDown, Palette
+  Keyboard, Save, Undo, Redo, Search, Printer, FileText, ChevronDown, Palette,
+  Paperclip
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -225,6 +226,10 @@ export const Ribbon: React.FC<RibbonProps> = ({
                     <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'insertImage')}>
                       <ImageIcon size={18} className="text-[#2b579a]" />
                       <span className="text-[9px] sm:text-[11px]">Pictures</span>
+                    </Button>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'insertFile')}>
+                      <Paperclip size={18} className="text-[#2b579a]" />
+                      <span className="text-[9px] sm:text-[11px]">Files</span>
                     </Button>
                   </div>
                   <span className="text-[8px] sm:text-[10px] text-[#2b579a] uppercase font-bold tracking-tighter">Illustrations</span>

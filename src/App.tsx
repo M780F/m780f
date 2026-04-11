@@ -12,6 +12,8 @@ export default function App() {
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
   const [isArabic, setIsArabic] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Track selection to enable/disable toolbar buttons
   useEffect(() => {
@@ -87,10 +89,9 @@ export default function App() {
       tableHtml += '</table><p>&nbsp;</p>';
       document.execCommand('insertHTML', false, tableHtml);
     } else if (command === 'insertImage') {
-      const url = prompt('Enter image URL:', 'https://picsum.photos/400/300');
-      if (url) {
-        document.execCommand('insertImage', false, url);
-      }
+      imageInputRef.current?.click();
+    } else if (command === 'insertFile') {
+      fileInputRef.current?.click();
     } else if (command === 'formatBlock') {
       document.execCommand('formatBlock', false, `<${value}>`);
       // If switching back to Normal (p), reset font size to default (3 = 11pt/16px)
@@ -101,6 +102,40 @@ export default function App() {
       document.execCommand(command, false, value);
     }
     editorRef.current.focus();
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && editorRef.current) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        editorRef.current?.focus();
+        document.execCommand('insertHTML', false, `<img src="${dataUrl}" style="max-width:100%; height:auto; display:block; margin:10px 0;" />`);
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset input
+    e.target.value = '';
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && editorRef.current) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target?.result as string;
+        editorRef.current?.focus();
+        const fileLink = `<a href="${dataUrl}" download="${file.name}" style="display:inline-flex; items-center; gap:8px; padding:8px 12px; background:#f3f2f1; border:1px solid #ccc; border-radius:4px; text-decoration:none; color:#2b579a; font-weight:bold; margin:5px 0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+          ${file.name}
+        </a><p>&nbsp;</p>`;
+        document.execCommand('insertHTML', false, fileLink);
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset input
+    e.target.value = '';
   };
 
   const handleKeyClick = (key: string) => {
@@ -135,6 +170,19 @@ export default function App() {
   return (
     <TooltipProvider>
       <div className="flex flex-col h-screen bg-[#f3f2f1] overflow-hidden font-sans select-none">
+        <input 
+          type="file" 
+          ref={imageInputRef} 
+          className="hidden" 
+          accept="image/*" 
+          onChange={handleImageUpload} 
+        />
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          className="hidden" 
+          onChange={handleFileUpload} 
+        />
         {/* Ribbon Header - Auto-collapses or can be manually toggled */}
         <div className={`transition-all duration-300 ease-in-out ${isRibbonCollapsed ? 'h-8 sm:h-9' : 'h-auto'}`}>
           <Ribbon 
