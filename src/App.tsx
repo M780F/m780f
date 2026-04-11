@@ -10,6 +10,7 @@ export default function App() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [showKeyboard, setShowKeyboard] = useState(true);
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
+  const [isArabic, setIsArabic] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
 
   // Track selection to enable/disable toolbar buttons
@@ -136,13 +137,19 @@ export default function App() {
             ref={editorRef} 
             content={content} 
             onChange={setContent} 
+            isArabic={isArabic}
           />
         </div>
 
         {/* Virtual Keyboard */}
         {showKeyboard && (
           <div className="bg-white border-t border-gray-300 p-1 sm:p-4 animate-in slide-in-from-bottom duration-300 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.1)] z-20">
-            <VirtualKeyboard onKeyClick={handleKeyClick} onClose={() => setShowKeyboard(false)} />
+            <VirtualKeyboard 
+              onKeyClick={handleKeyClick} 
+              onClose={() => setShowKeyboard(false)} 
+              isArabic={isArabic}
+              onLanguageToggle={() => setIsArabic(!isArabic)}
+            />
           </div>
         )}
 

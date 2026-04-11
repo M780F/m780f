@@ -3,9 +3,10 @@ import React, { forwardRef } from 'react';
 interface EditorProps {
   content: string;
   onChange: (content: string) => void;
+  isArabic?: boolean;
 }
 
-export const Editor = forwardRef<HTMLDivElement, EditorProps>(({ content, onChange }, ref) => {
+export const Editor = forwardRef<HTMLDivElement, EditorProps>(({ content, onChange, isArabic = false }, ref) => {
   return (
     <div className="w-full max-w-[816px] min-h-[1056px] bg-white shadow-[0_0_10px_rgba(0,0,0,0.1)] p-4 sm:p-12 md:p-[96px] outline-none cursor-text relative mb-8 sm:mb-20 mx-auto">
       {/* Page Border/Shadow Effect */}
@@ -20,8 +21,9 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(({ content, onChan
         contentEditable
         inputMode="none"
         suppressContentEditableWarning
-        className="w-full h-full min-h-[864px] outline-none text-[16px] leading-[1.5] text-gray-900 break-words font-serif"
-        style={{ fontFamily: "'Times New Roman', serif" }}
+        dir={isArabic ? 'rtl' : 'ltr'}
+        className={`w-full h-full min-h-[864px] outline-none text-[16px] leading-[1.5] text-gray-900 break-words ${isArabic ? 'font-sans' : 'font-serif'}`}
+        style={{ fontFamily: isArabic ? "'Arial', sans-serif" : "'Times New Roman', serif" }}
         onInput={(e) => onChange(e.currentTarget.innerHTML)}
         onKeyDown={(e) => {
           if (e.key === 'Tab') {

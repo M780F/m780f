@@ -5,19 +5,37 @@ import { X, Delete, CornerDownLeft, Space, ArrowBigUp, ChevronLeft, ChevronRight
 interface VirtualKeyboardProps {
   onKeyClick: (key: string) => void;
   onClose: () => void;
+  isArabic: boolean;
+  onLanguageToggle: () => void;
 }
 
-export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ onKeyClick, onClose }) => {
+export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ 
+  onKeyClick, 
+  onClose,
+  isArabic,
+  onLanguageToggle
+}) => {
   const [isShift, setIsShift] = useState(false);
   const [isCaps, setIsCaps] = useState(false);
+  const [isAltActive, setIsAltActive] = useState(false);
 
-  const rows = [
+  const enRows = [
     ['Esc', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'Backspace'],
     ['Tab', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\\'],
     ['CapsLock', 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', "'", 'Enter'],
     ['Shift', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 'Shift'],
     ['Ctrl', 'Alt', 'Space', 'Left', 'Up', 'Down', 'Right']
   ];
+
+  const arRows = [
+    ['Esc', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩', '٠', '-', '=', 'Backspace'],
+    ['Tab', 'ض', 'ص', 'ث', 'ق', 'ف', 'غ', 'ع', 'ه', 'خ', 'ح', 'ج', 'د', '\\'],
+    ['CapsLock', 'ش', 'س', 'ي', 'ب', 'ل', 'ا', 'ت', 'ن', 'م', 'ك', 'ط', 'Enter'],
+    ['Shift', 'ئ', 'ء', 'ؤ', 'ر', 'لا', 'ى', 'ة', 'و', 'ز', 'ظ', 'Shift'],
+    ['Ctrl', 'Alt', 'Space', 'Left', 'Up', 'Down', 'Right']
+  ];
+
+  const rows = isArabic ? arRows : enRows;
 
   const getKeyLabel = (key: string) => {
     if (key === 'Backspace') return <Delete size={16} />;
@@ -29,8 +47,9 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ onKeyClick, on
     if (key === 'Right') return <ChevronRight size={16} />;
     if (key === 'Up') return <ChevronUp size={16} />;
     if (key === 'Down') return <ChevronDown size={16} />;
+    if (key === 'Alt') return <span className={isAltActive ? 'text-blue-600' : ''}>Alt</span>;
     
-    if ((isShift || isCaps) && key.length === 1) {
+    if (!isArabic && (isShift || isCaps) && key.length === 1) {
       const shiftMap: Record<string, string> = {
         '1': '!', '2': '@', '3': '#', '4': '$', '5': '%', '6': '^', '7': '&', '8': '*', '9': '(', '0': ')',
         '-': '_', '=': '+', '[': '{', ']': '}', '\\': '|', ';': ':', "'": '"', ',': '<', '.': '>', '/': '?'
@@ -45,6 +64,17 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ onKeyClick, on
   };
 
   const handleKey = (key: string) => {
+    if (key === 'Alt') {
+      setIsAltActive(!isAltActive);
+      return;
+    }
+
+    if (key === 'Tab' && isAltActive) {
+      onLanguageToggle();
+      setIsAltActive(false);
+      return;
+    }
+
     if (key === 'Shift') {
       setIsShift(!isShift);
       return;
@@ -55,7 +85,7 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ onKeyClick, on
     }
     
     let value = key;
-    if ((isShift || isCaps) && key.length === 1) {
+    if (!isArabic && (isShift || isCaps) && key.length === 1) {
       const shiftMap: Record<string, string> = {
         '1': '!', '2': '@', '3': '#', '4': '$', '5': '%', '6': '^', '7': '&', '8': '*', '9': '(', '0': ')',
         '-': '_', '=': '+', '[': '{', ']': '}', '\\': '|', ';': ':', "'": '"', ',': '<', '.': '>', '/': '?'
@@ -71,12 +101,18 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ onKeyClick, on
     
     onKeyClick(value);
     if (isShift) setIsShift(false);
+    if (isAltActive) setIsAltActive(false);
   };
 
   return (
     <div className="max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-0.5 sm:mb-2 px-2">
-        <span className="text-[9px] sm:text-xs font-medium text-gray-500 hidden xs:inline">Word Keyboard</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] sm:text-xs font-medium text-gray-500 hidden xs:inline">Word Keyboard</span>
+          <span className="text-[9px] sm:text-xs font-bold text-[#2b579a] bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+            {isArabic ? 'Arabic' : 'English'}
+          </span>
+        </div>
         <div className="flex items-center gap-2 ml-auto">
           <Button variant="ghost" size="icon" className="h-5 w-5 sm:h-6 sm:w-6" onClick={onClose}>
             <ChevronDown size={14} />
@@ -111,6 +147,7 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({ onKeyClick, on
                   key={j}
                   variant={isSpecial ? "secondary" : "outline"}
                   className={`${width} ${height} p-0 text-[11px] sm:text-sm font-bold shadow-sm hover:bg-gray-100 active:scale-95 active:bg-blue-100 transition-all rounded-md border-gray-300`}
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleKey(key)}
                 >
                   {getKeyLabel(key)}
