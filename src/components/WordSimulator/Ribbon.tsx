@@ -54,13 +54,13 @@ export const Ribbon: React.FC<RibbonProps> = ({
       )}
 
       <Tabs defaultValue="home" className="w-full">
-        <div className="flex items-center px-1 sm:px-2 bg-white border-b border-gray-100 h-8 sm:h-9">
+        <div className="flex items-center px-1 sm:px-2 bg-white border-b border-gray-200 h-9 sm:h-10">
           <TabsList className="bg-transparent border-none h-full p-0 gap-0">
-            <TabsTrigger value="file" className="data-[state=active]:bg-[#2b579a] data-[state=active]:text-white data-[state=active]:border-none rounded-none px-3 sm:px-5 text-[10px] sm:text-xs h-full font-medium transition-colors">File</TabsTrigger>
-            <TabsTrigger value="home" className="data-[state=active]:bg-white data-[state=active]:text-[#2b579a] data-[state=active]:border-b-2 data-[state=active]:border-[#2b579a] rounded-none px-3 sm:px-5 text-[10px] sm:text-xs h-full font-medium transition-colors">Home</TabsTrigger>
-            <TabsTrigger value="insert" className="data-[state=active]:bg-white data-[state=active]:text-[#2b579a] data-[state=active]:border-b-2 data-[state=active]:border-[#2b579a] rounded-none px-3 sm:px-5 text-[10px] sm:text-xs h-full font-medium transition-colors">Insert</TabsTrigger>
-            <TabsTrigger value="layout" className="data-[state=active]:bg-white data-[state=active]:text-[#2b579a] data-[state=active]:border-b-2 data-[state=active]:border-[#2b579a] rounded-none px-3 sm:px-5 text-[10px] sm:text-xs h-full font-medium transition-colors">Layout</TabsTrigger>
-            <TabsTrigger value="view" className="data-[state=active]:bg-white data-[state=active]:text-[#2b579a] data-[state=active]:border-b-2 data-[state=active]:border-[#2b579a] rounded-none px-3 sm:px-5 text-[10px] sm:text-xs h-full font-medium transition-colors">View</TabsTrigger>
+            <TabsTrigger value="file" className="data-[state=active]:bg-[#2b579a] data-[state=active]:text-white data-[state=active]:border-none rounded-none px-4 sm:px-6 text-[11px] sm:text-sm h-full font-medium transition-colors">File</TabsTrigger>
+            <TabsTrigger value="home" className="data-[state=active]:bg-[#f3f2f1] data-[state=active]:text-[#2b579a] data-[state=active]:border-t data-[state=active]:border-x data-[state=active]:border-gray-200 rounded-t-sm px-4 sm:px-6 text-[11px] sm:text-sm h-full font-medium transition-colors">Home</TabsTrigger>
+            <TabsTrigger value="insert" className="data-[state=active]:bg-[#f3f2f1] data-[state=active]:text-[#2b579a] data-[state=active]:border-t data-[state=active]:border-x data-[state=active]:border-gray-200 rounded-t-sm px-4 sm:px-6 text-[11px] sm:text-sm h-full font-medium transition-colors">Insert</TabsTrigger>
+            <TabsTrigger value="layout" className="data-[state=active]:bg-[#f3f2f1] data-[state=active]:text-[#2b579a] data-[state=active]:border-t data-[state=active]:border-x data-[state=active]:border-gray-200 rounded-t-sm px-4 sm:px-6 text-[11px] sm:text-sm h-full font-medium transition-colors">Layout</TabsTrigger>
+            <TabsTrigger value="view" className="data-[state=active]:bg-[#f3f2f1] data-[state=active]:text-[#2b579a] data-[state=active]:border-t data-[state=active]:border-x data-[state=active]:border-gray-200 rounded-t-sm px-4 sm:px-6 text-[11px] sm:text-sm h-full font-medium transition-colors">View</TabsTrigger>
           </TabsList>
           <div className="ml-auto flex items-center gap-1 sm:gap-2 px-1 sm:px-2">
              <Button 
@@ -97,24 +97,24 @@ export const Ribbon: React.FC<RibbonProps> = ({
           </div>
         </TabsContent>
 
-        <TabsContent value="home" className="m-0 p-1 sm:p-2 bg-[#f3f2f1] flex items-center gap-3 overflow-x-auto h-[90px] sm:h-auto animate-in slide-in-from-top-1 duration-200">
+        <TabsContent value="home" className="m-0 p-1.5 sm:p-2 bg-[#f3f2f1] flex items-center gap-3 overflow-x-auto h-[115px] sm:h-auto animate-in slide-in-from-top-1 duration-200 border-b border-gray-300">
           {/* Clipboard Group */}
-          <div className="flex flex-col items-center gap-1 px-3 border-r border-gray-300 shrink-0 bg-white/40 rounded-md py-1">
-            <div className="flex gap-2">
-              <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8" onClick={() => onFormat('paste')}><FileText size={14} className="sm:w-[18px]" /></Button>
-              <div className="flex flex-col gap-0.5">
-                <Button variant="ghost" size="sm" className="h-3 px-2 text-[8px] sm:text-[10px]" onClick={() => onFormat('cut')}>Cut</Button>
-                <Button variant="ghost" size="sm" className="h-3 px-2 text-[8px] sm:text-[10px]" onClick={() => onFormat('copy')}>Copy</Button>
+          <div className="flex flex-col items-center gap-1.5 px-3 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-lg py-2 border border-gray-200">
+            <div className="flex gap-3">
+              <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-9 sm:w-9 bg-blue-50/50" onClick={() => onFormat('paste')}><FileText size={20} className="sm:w-[20px] text-[#2b579a]" /></Button>
+              <div className="flex flex-col gap-1">
+                <Button variant="ghost" size="sm" className="h-4.5 px-3 text-[10px] sm:text-[11px] hover:bg-blue-50" onClick={() => onFormat('cut')}>Cut</Button>
+                <Button variant="ghost" size="sm" className="h-4.5 px-3 text-[10px] sm:text-[11px] hover:bg-blue-50" onClick={() => onFormat('copy')}>Copy</Button>
               </div>
             </div>
-            <span className="text-[8px] sm:text-[9px] text-gray-500 uppercase font-bold">Clipboard</span>
+            <span className="text-[9px] sm:text-[10px] text-[#2b579a] uppercase font-bold tracking-widest">Clipboard</span>
           </div>
 
           {/* Font Group */}
-          <div className="flex flex-col items-center gap-1 px-3 border-r border-gray-300 shrink-0 bg-white/40 rounded-md py-1">
+          <div className="flex flex-col items-center gap-1.5 px-3 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-lg py-2 border border-gray-200">
             <div className="flex items-center gap-2">
               <Select defaultValue="Arial" onValueChange={(v) => onFormat('fontName', v)}>
-                <SelectTrigger className="h-7 w-[85px] sm:h-7 sm:w-[100px] text-[10px] sm:text-xs bg-white border-gray-300">
+                <SelectTrigger className="h-9 w-[105px] sm:h-8 sm:w-[120px] text-[12px] sm:text-sm bg-white border-gray-300 font-semibold text-gray-800">
                   <SelectValue placeholder="Font" />
                 </SelectTrigger>
                 <SelectContent>
@@ -122,11 +122,13 @@ export const Ribbon: React.FC<RibbonProps> = ({
                   <SelectItem value="Times New Roman">Times New Roman</SelectItem>
                   <SelectItem value="Calibri">Calibri</SelectItem>
                   <SelectItem value="Courier New">Courier New</SelectItem>
+                  <SelectItem value="Georgia">Georgia</SelectItem>
+                  <SelectItem value="Verdana">Verdana</SelectItem>
                 </SelectContent>
               </Select>
               
               <Select defaultValue="3" onValueChange={(v) => onFormat('fontSize', v)}>
-                <SelectTrigger className="h-7 w-[45px] sm:h-7 sm:w-[50px] text-[10px] sm:text-xs bg-white border-gray-300">
+                <SelectTrigger className="h-9 w-[55px] sm:h-8 sm:w-[60px] text-[12px] sm:text-sm bg-white border-gray-300 font-semibold text-gray-800">
                   <SelectValue placeholder="Size" />
                 </SelectTrigger>
                 <SelectContent>
@@ -140,77 +142,77 @@ export const Ribbon: React.FC<RibbonProps> = ({
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-7 sm:w-7" onClick={() => onFormat('bold')}><Bold size={14} className="sm:w-[14px]" /></Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-7 sm:w-7" onClick={() => onFormat('italic')}><Italic size={14} className="sm:w-[14px]" /></Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-7 sm:w-7" onClick={() => onFormat('underline')}><Underline size={14} className="sm:w-[14px]" /></Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 border border-gray-100 hover:bg-blue-50 hover:text-[#2b579a]" onClick={() => onFormat('bold')}><Bold size={18} className="sm:w-[16px]" /></Button>
+              <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 border border-gray-100 hover:bg-blue-50 hover:text-[#2b579a]" onClick={() => onFormat('italic')}><Italic size={18} className="sm:w-[16px]" /></Button>
+              <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 border border-gray-100 hover:bg-blue-50 hover:text-[#2b579a]" onClick={() => onFormat('underline')}><Underline size={18} className="sm:w-[16px]" /></Button>
             </div>
-            <span className="text-[8px] sm:text-[9px] text-gray-500 uppercase font-bold">Font</span>
+            <span className="text-[9px] sm:text-[10px] text-[#2b579a] uppercase font-bold tracking-widest">Font</span>
           </div>
 
           {/* Paragraph Group */}
-          <div className="flex flex-col items-center gap-1 px-3 border-r border-gray-300 shrink-0 bg-white/40 rounded-md py-1">
+          <div className="flex flex-col items-center gap-1.5 px-3 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-lg py-2 border border-gray-200">
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-7 sm:w-7" onClick={() => onFormat('insertUnorderedList')}><List size={14} className="sm:w-[14px]" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-7 sm:w-7" onClick={() => onFormat('insertOrderedList')}><ListOrdered size={14} className="sm:w-[14px]" /></Button>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 border border-gray-100 hover:bg-blue-50 hover:text-[#2b579a]" onClick={() => onFormat('insertUnorderedList')}><List size={18} className="sm:w-[16px]" /></Button>
+                <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 border border-gray-100 hover:bg-blue-50 hover:text-[#2b579a]" onClick={() => onFormat('insertOrderedList')}><ListOrdered size={18} className="sm:w-[16px]" /></Button>
               </div>
-              <Separator orientation="vertical" className="h-5 sm:h-6 mx-1" />
-              <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-7 sm:w-7" onClick={() => onFormat('justifyLeft')}><AlignLeft size={14} className="sm:w-[14px]" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-7 sm:w-7" onClick={() => onFormat('justifyCenter')}><AlignCenter size={14} className="sm:w-[14px]" /></Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-7 sm:w-7" onClick={() => onFormat('justifyRight')}><AlignRight size={14} className="sm:w-[14px]" /></Button>
+              <Separator orientation="vertical" className="h-7 sm:h-8 mx-1 bg-gray-300" />
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 border border-gray-100 hover:bg-blue-50 hover:text-[#2b579a]" onClick={() => onFormat('justifyLeft')}><AlignLeft size={18} className="sm:w-[16px]" /></Button>
+                <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 border border-gray-100 hover:bg-blue-50 hover:text-[#2b579a]" onClick={() => onFormat('justifyCenter')}><AlignCenter size={18} className="sm:w-[16px]" /></Button>
+                <Button variant="ghost" size="icon" className="h-9 w-9 sm:h-8 sm:w-8 border border-gray-100 hover:bg-blue-50 hover:text-[#2b579a]" onClick={() => onFormat('justifyRight')}><AlignRight size={18} className="sm:w-[16px]" /></Button>
               </div>
             </div>
-            <span className="text-[8px] sm:text-[9px] text-gray-500 uppercase font-bold">Paragraph</span>
+            <span className="text-[9px] sm:text-[10px] text-[#2b579a] uppercase font-bold tracking-widest">Paragraph</span>
           </div>
         </TabsContent>
 
-        <TabsContent value="insert" className="m-0 p-1 sm:p-2 bg-[#f3f2f1] flex items-center gap-2 overflow-x-auto h-[75px] sm:h-auto animate-in slide-in-from-top-1 duration-200">
-           <div className="flex flex-col items-center gap-0 px-2 border-r border-gray-300 shrink-0 bg-white/40 rounded-sm py-0.5">
+        <TabsContent value="insert" className="m-0 p-1 sm:p-2 bg-[#f3f2f1] flex items-center gap-3 overflow-x-auto h-[95px] sm:h-auto animate-in slide-in-from-top-1 duration-200 border-b border-gray-300">
+           <div className="flex flex-col items-center gap-1 px-3 border-r border-gray-300 shrink-0 bg-white/60 shadow-sm rounded-md py-1.5">
              <div className="flex gap-2">
-               <Button variant="ghost" className="flex flex-col h-8 w-10 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1" onClick={() => onFormat('insertTable')}>
-                 <TableIcon size={16} className="sm:w-[20px]" />
-                 <span className="text-[8px] sm:text-[10px]">Table</span>
+               <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1" onClick={() => onFormat('insertTable')}>
+                 <TableIcon size={18} className="sm:w-[24px]" />
+                 <span className="text-[9px] sm:text-[11px]">Table</span>
                </Button>
-               <Button variant="ghost" className="flex flex-col h-8 w-10 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1" onClick={() => onFormat('insertImage')}>
-                 <ImageIcon size={16} className="sm:w-[20px]" />
-                 <span className="text-[8px] sm:text-[10px]">Pictures</span>
+               <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1" onClick={() => onFormat('insertImage')}>
+                 <ImageIcon size={18} className="sm:w-[24px]" />
+                 <span className="text-[9px] sm:text-[11px]">Pictures</span>
                </Button>
              </div>
-             <span className="text-[7px] sm:text-[9px] text-gray-500 uppercase">Illustrations</span>
+             <span className="text-[8px] sm:text-[10px] text-gray-500 uppercase font-bold tracking-wider">Illustrations</span>
            </div>
         </TabsContent>
 
-        <TabsContent value="layout" className="m-0 p-1 sm:p-2 bg-[#f3f2f1] flex items-center gap-2 overflow-x-auto h-[75px] sm:h-auto animate-in slide-in-from-top-1 duration-200">
-          <div className="flex flex-col items-center gap-0 px-2 border-r border-gray-300 shrink-0 bg-white/40 rounded-sm py-0.5">
+        <TabsContent value="layout" className="m-0 p-1 sm:p-2 bg-[#f3f2f1] flex items-center gap-3 overflow-x-auto h-[95px] sm:h-auto animate-in slide-in-from-top-1 duration-200 border-b border-gray-300">
+          <div className="flex flex-col items-center gap-1 px-3 border-r border-gray-300 shrink-0 bg-white/60 shadow-sm rounded-md py-1.5">
             <div className="flex gap-2">
-              <Button variant="ghost" className="flex flex-col h-8 w-10 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1">
-                <AlignLeft size={16} className="rotate-90 sm:w-[20px]" />
-                <span className="text-[8px] sm:text-[10px]">Margins</span>
+              <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1">
+                <AlignLeft size={18} className="rotate-90 sm:w-[24px]" />
+                <span className="text-[9px] sm:text-[11px]">Margins</span>
               </Button>
-              <Button variant="ghost" className="flex flex-col h-8 w-10 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1">
-                <FileText size={16} className="sm:w-[20px]" />
-                <span className="text-[8px] sm:text-[10px]">Orientation</span>
+              <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1">
+                <FileText size={18} className="sm:w-[24px]" />
+                <span className="text-[9px] sm:text-[11px]">Orientation</span>
               </Button>
             </div>
-            <span className="text-[7px] sm:text-[9px] text-gray-500 uppercase">Page Setup</span>
+            <span className="text-[8px] sm:text-[10px] text-gray-500 uppercase font-bold tracking-wider">Page Setup</span>
           </div>
         </TabsContent>
 
-        <TabsContent value="view" className="m-0 p-1 sm:p-2 bg-[#f3f2f1] flex items-center gap-2 overflow-x-auto h-[75px] sm:h-auto animate-in slide-in-from-top-1 duration-200">
-          <div className="flex flex-col items-center gap-0 px-2 border-r border-gray-300 shrink-0 bg-white/40 rounded-sm py-0.5">
+        <TabsContent value="view" className="m-0 p-1 sm:p-2 bg-[#f3f2f1] flex items-center gap-3 overflow-x-auto h-[95px] sm:h-auto animate-in slide-in-from-top-1 duration-200 border-b border-gray-300">
+          <div className="flex flex-col items-center gap-1 px-3 border-r border-gray-300 shrink-0 bg-white/60 shadow-sm rounded-md py-1.5">
             <div className="flex gap-2">
-              <Button variant="ghost" className="flex flex-col h-8 w-10 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1">
-                <Printer size={16} className="sm:w-[20px]" />
-                <span className="text-[8px] sm:text-[10px]">Print</span>
+              <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1">
+                <Printer size={18} className="sm:w-[24px]" />
+                <span className="text-[9px] sm:text-[11px]">Print</span>
               </Button>
-              <Button variant="ghost" className="flex flex-col h-8 w-10 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1">
-                <Search size={16} className="sm:w-[20px]" />
-                <span className="text-[8px] sm:text-[10px]">Zoom</span>
+              <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1">
+                <Search size={18} className="sm:w-[24px]" />
+                <span className="text-[9px] sm:text-[11px]">Zoom</span>
               </Button>
             </div>
-            <span className="text-[7px] sm:text-[9px] text-gray-500 uppercase">Views</span>
+            <span className="text-[8px] sm:text-[10px] text-gray-500 uppercase font-bold tracking-wider">Views</span>
           </div>
         </TabsContent>
           </>

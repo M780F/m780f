@@ -52,8 +52,13 @@ export default function App() {
   const handleFormat = (command: string, value?: string) => {
     if (!editorRef.current) return;
     
+    // Ensure editor is focused before executing command
+    editorRef.current.focus();
+    
     if (command === 'fontSize') {
       document.execCommand('fontSize', false, value);
+    } else if (command === 'fontName') {
+      document.execCommand('fontName', false, value);
     } else if (command === 'insertTable') {
       const rows = 3;
       const cols = 3;

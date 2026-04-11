@@ -20,7 +20,7 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(({ content, onChan
         contentEditable
         inputMode="none"
         suppressContentEditableWarning
-        className="w-full h-full min-h-[864px] outline-none text-[14px] sm:text-[16px] leading-[1.5] text-gray-900 break-words font-serif"
+        className="w-full h-full min-h-[864px] outline-none text-[16px] leading-[1.5] text-gray-900 break-words font-serif"
         style={{ fontFamily: "'Times New Roman', serif" }}
         onInput={(e) => onChange(e.currentTarget.innerHTML)}
         onKeyDown={(e) => {
