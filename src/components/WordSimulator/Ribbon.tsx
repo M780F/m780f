@@ -153,6 +153,8 @@ export const Ribbon: React.FC<RibbonProps> = ({
                         <SelectItem value="3">11pt</SelectItem>
                         <SelectItem value="4">12pt</SelectItem>
                         <SelectItem value="5">14pt</SelectItem>
+                        <SelectItem value="6">18pt</SelectItem>
+                        <SelectItem value="7">24pt</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

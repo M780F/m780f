@@ -23,7 +23,10 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(({ content, onChan
         suppressContentEditableWarning
         dir={isArabic ? 'rtl' : 'ltr'}
         className={`w-full h-full min-h-[864px] outline-none text-[16px] leading-[1.5] text-gray-900 break-words ${isArabic ? 'font-sans' : 'font-serif'}`}
-        style={{ fontFamily: isArabic ? "'Arial', sans-serif" : "'Times New Roman', serif" }}
+        style={{ 
+          fontFamily: isArabic ? "'Arial', sans-serif" : "'Times New Roman', serif",
+          touchAction: 'manipulation'
+        }}
         onInput={(e) => onChange(e.currentTarget.innerHTML)}
         onKeyDown={(e) => {
           if (e.key === 'Tab') {

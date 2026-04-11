@@ -56,7 +56,11 @@ export default function App() {
     // Ensure editor is focused before executing command
     editorRef.current.focus();
     
+    // Use CSS styles instead of HTML tags (better for mobile/iPhone)
+    document.execCommand('styleWithCSS', false, true as any);
+    
     if (command === 'fontSize') {
+      // Standard fontSize command expects 1-7
       document.execCommand('fontSize', false, value);
     } else if (command === 'fontName') {
       document.execCommand('fontName', false, value);
