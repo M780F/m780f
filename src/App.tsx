@@ -82,6 +82,8 @@ export default function App() {
       if (url) {
         document.execCommand('insertImage', false, url);
       }
+    } else if (command === 'formatBlock') {
+      document.execCommand('formatBlock', false, `<${value}>`);
     } else {
       document.execCommand(command, false, value);
     }

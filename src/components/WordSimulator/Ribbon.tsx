@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Type, List, ListOrdered, Image as ImageIcon, Table as TableIcon,
-  Keyboard, Save, Undo, Redo, Search, Printer, FileText, ChevronDown
+  Keyboard, Save, Undo, Redo, Search, Printer, FileText, ChevronDown, Palette
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -128,7 +128,7 @@ export const Ribbon: React.FC<RibbonProps> = ({
                 </div>
 
                 {/* Font Group */}
-                <div className="flex flex-col items-center gap-1 px-2 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200 min-w-[160px]">
+                <div className="flex flex-col items-center gap-1 px-2 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200 min-w-[200px]">
                   <div className="flex items-center gap-1.5">
                     <Select defaultValue="Arial" onValueChange={(v) => onFormat('fontName', v)}>
                       <SelectTrigger className="h-8 w-[85px] text-[11px] bg-white border-gray-300 font-semibold text-gray-800">
@@ -157,6 +157,19 @@ export const Ribbon: React.FC<RibbonProps> = ({
                         <SelectItem value="7">24pt</SelectItem>
                       </SelectContent>
                     </Select>
+
+                    <Select onValueChange={(v) => onFormat('foreColor', v)}>
+                      <SelectTrigger className="h-8 w-[40px] p-0 flex items-center justify-center bg-white border-gray-300">
+                        <Palette size={16} className="text-gray-600" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="#000000"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-black rounded-full" /> Black</div></SelectItem>
+                        <SelectItem value="#ff0000"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-red-600 rounded-full" /> Red</div></SelectItem>
+                        <SelectItem value="#0000ff"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-blue-600 rounded-full" /> Blue</div></SelectItem>
+                        <SelectItem value="#008000"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-green-600 rounded-full" /> Green</div></SelectItem>
+                        <SelectItem value="#ffa500"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-orange-500 rounded-full" /> Orange</div></SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Button variant="ghost" size="icon" className="h-8 w-8 border border-gray-100 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'bold')}><Bold size={16} /></Button>
@@ -181,6 +194,22 @@ export const Ribbon: React.FC<RibbonProps> = ({
                     </div>
                   </div>
                   <span className="text-[8px] text-[#2b579a] uppercase font-bold tracking-tighter">Paragraph</span>
+                </div>
+
+                {/* Styles Group */}
+                <div className="flex flex-col items-center gap-1 px-2 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200 min-w-[100px]">
+                  <Select onValueChange={(v) => onFormat('formatBlock', v)}>
+                    <SelectTrigger className="h-8 w-[90px] text-[11px] bg-white border-gray-300 font-semibold text-gray-800">
+                      <SelectValue placeholder="Styles" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="p">Normal</SelectItem>
+                      <SelectItem value="h1">Heading 1</SelectItem>
+                      <SelectItem value="h2">Heading 2</SelectItem>
+                      <SelectItem value="h3">Heading 3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span className="text-[8px] text-[#2b579a] uppercase font-bold tracking-tighter">Styles</span>
                 </div>
               </div>
             )}
