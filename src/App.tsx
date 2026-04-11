@@ -60,8 +60,17 @@ export default function App() {
     document.execCommand('styleWithCSS', false, true as any);
     
     if (command === 'fontSize') {
-      // Standard fontSize command expects 1-7
-      document.execCommand('fontSize', false, value);
+      // Map 1-7 to actual pixel sizes for better iPhone support
+      const sizeMap: Record<string, string> = {
+        '1': '12px',
+        '2': '14px',
+        '3': '16px',
+        '4': '18px',
+        '5': '24px',
+        '6': '32px',
+        '7': '48px'
+      };
+      document.execCommand('fontSize', false, sizeMap[value || '3']);
     } else if (command === 'fontName') {
       document.execCommand('fontName', false, value);
     } else if (command === 'insertTable') {
@@ -84,6 +93,10 @@ export default function App() {
       }
     } else if (command === 'formatBlock') {
       document.execCommand('formatBlock', false, `<${value}>`);
+      // If switching back to Normal (p), reset font size to default (3 = 11pt/16px)
+      if (value === 'p') {
+        document.execCommand('fontSize', false, '3');
+      }
     } else {
       document.execCommand(command, false, value);
     }

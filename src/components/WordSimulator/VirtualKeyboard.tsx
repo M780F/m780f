@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { X, Delete, CornerDownLeft, Space, ArrowBigUp, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Type } from 'lucide-react';
 
@@ -18,6 +18,37 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
   const [isShift, setIsShift] = useState(false);
   const [isCaps, setIsCaps] = useState(false);
   const [isAltActive, setIsAltActive] = useState(false);
+  const backspaceIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const backspaceDelayRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (backspaceIntervalRef.current) clearInterval(backspaceIntervalRef.current);
+      if (backspaceDelayRef.current) clearTimeout(backspaceDelayRef.current);
+    };
+  }, []);
+
+  const startBackspace = () => {
+    handleKey('Backspace');
+    
+    // Initial delay before repeating
+    backspaceDelayRef.current = setTimeout(() => {
+      backspaceIntervalRef.current = setInterval(() => {
+        handleKey('Backspace');
+      }, 100); // Repeat every 100ms
+    }, 500); // Wait 500ms before starting repeat
+  };
+
+  const stopBackspace = () => {
+    if (backspaceIntervalRef.current) {
+      clearInterval(backspaceIntervalRef.current);
+      backspaceIntervalRef.current = null;
+    }
+    if (backspaceDelayRef.current) {
+      clearTimeout(backspaceDelayRef.current);
+      backspaceDelayRef.current = null;
+    }
+  };
 
   const enRows = [
     ['Esc', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 'Backspace'],
@@ -142,17 +173,39 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
               if (['Left', 'Right', 'Up', 'Down'].includes(key)) width = 'flex-1 min-w-[25px] sm:w-10';
               if (key === 'Esc') width = 'flex-1 min-w-[30px] sm:w-12';
 
-              return (
-                <Button
-                  key={j}
-                  variant={isSpecial ? "secondary" : "outline"}
-                  className={`${width} ${height} p-0 text-[11px] sm:text-sm font-bold shadow-sm hover:bg-gray-100 active:scale-95 active:bg-blue-100 transition-all rounded-md border-gray-300`}
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleKey(key)}
-                >
-                  {getKeyLabel(key)}
-                </Button>
-              );
+                return (
+                  <Button
+                    key={j}
+                    variant={isSpecial ? "secondary" : "outline"}
+                    className={`${width} ${height} p-0 text-[11px] sm:text-sm font-bold shadow-sm hover:bg-gray-100 active:scale-95 active:bg-blue-100 transition-all rounded-md border-gray-300`}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      if (key === 'Backspace') {
+                        startBackspace();
+                      }
+                    }}
+                    onMouseUp={() => {
+                      if (key === 'Backspace') stopBackspace();
+                    }}
+                    onMouseLeave={() => {
+                      if (key === 'Backspace') stopBackspace();
+                    }}
+                    onTouchStart={(e) => {
+                      if (key === 'Backspace') {
+                        e.preventDefault();
+                        startBackspace();
+                      }
+                    }}
+                    onTouchEnd={() => {
+                      if (key === 'Backspace') stopBackspace();
+                    }}
+                    onClick={() => {
+                      if (key !== 'Backspace') handleKey(key);
+                    }}
+                  >
+                    {getKeyLabel(key)}
+                  </Button>
+                );
             })}
           </div>
         ))}
