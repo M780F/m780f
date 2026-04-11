@@ -94,9 +94,9 @@ export default function App() {
       fileInputRef.current?.click();
     } else if (command === 'formatBlock') {
       document.execCommand('formatBlock', false, `<${value}>`);
-      // If switching back to Normal (p), reset font size to default (3 = 11pt/16px)
+      // If switching back to Normal (p), reset font size to default (16px)
       if (value === 'p') {
-        document.execCommand('fontSize', false, '3');
+        document.execCommand('fontSize', false, '16px');
       }
     } else {
       document.execCommand(command, false, value);
@@ -111,7 +111,15 @@ export default function App() {
       reader.onload = (event) => {
         const dataUrl = event.target?.result as string;
         editorRef.current?.focus();
-        document.execCommand('insertHTML', false, `<img src="${dataUrl}" style="max-width:100%; height:auto; display:block; margin:10px 0;" />`);
+        // Insert image with a wrapper for better control and resizing handles simulation
+        const imgHtml = `
+          <div class="image-wrapper" style="display: inline-block; position: relative; margin: 10px; cursor: move; user-select: none;" contenteditable="false">
+            <img src="${dataUrl}" style="display: block; width: 200px; height: auto; pointer-events: none;" />
+            <div class="resize-handle" style="position: absolute; bottom: 0; right: 0; width: 15px; height: 15px; background: #2b579a; cursor: nwse-resize; border-radius: 2px;"></div>
+          </div>
+          <p contenteditable="true">&nbsp;</p>
+        `;
+        document.execCommand('insertHTML', false, imgHtml);
       };
       reader.readAsDataURL(file);
     }
@@ -166,6 +174,88 @@ export default function App() {
       document.execCommand('insertText', false, key);
     }
   };
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    let isResizing = false;
+    let isDragging = false;
+    let currentElement: HTMLElement | null = null;
+    let startX = 0;
+    let startY = 0;
+    let startWidth = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    const handlePointerDown = (e: PointerEvent) => {
+      const target = e.target as HTMLElement;
+      
+      // Handle Resizing
+      if (target.classList.contains('resize-handle')) {
+        isResizing = true;
+        currentElement = target.parentElement;
+        if (currentElement) {
+          const img = currentElement.querySelector('img');
+          if (img) {
+            startWidth = img.offsetWidth;
+            startX = e.clientX;
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }
+      } 
+      // Handle Dragging
+      else if (target.classList.contains('image-wrapper')) {
+        isDragging = true;
+        currentElement = target;
+        startX = e.clientX;
+        startY = e.clientY;
+        const rect = currentElement.getBoundingClientRect();
+        // We use relative positioning for dragging within the editor
+        startLeft = currentElement.offsetLeft;
+        startTop = currentElement.offsetTop;
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    const handlePointerMove = (e: PointerEvent) => {
+      if (isResizing && currentElement) {
+        const img = currentElement.querySelector('img');
+        if (img) {
+          const deltaX = e.clientX - startX;
+          const newWidth = Math.max(50, startWidth + deltaX);
+          img.style.width = `${newWidth}px`;
+        }
+      } else if (isDragging && currentElement) {
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+        
+        // Use absolute positioning for free movement
+        currentElement.style.position = 'absolute';
+        currentElement.style.left = `${startLeft + deltaX}px`;
+        currentElement.style.top = `${startTop + deltaY}px`;
+        currentElement.style.zIndex = '10';
+      }
+    };
+
+    const handlePointerUp = () => {
+      isResizing = false;
+      isDragging = false;
+      currentElement = null;
+    };
+
+    editor.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+
+    return () => {
+      editor.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, []);
 
   return (
     <TooltipProvider>

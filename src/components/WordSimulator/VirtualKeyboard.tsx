@@ -196,11 +196,18 @@ export const VirtualKeyboard: React.FC<VirtualKeyboardProps> = ({
                         startBackspace();
                       }
                     }}
-                    onTouchEnd={() => {
-                      if (key === 'Backspace') stopBackspace();
+                    onTouchEnd={(e) => {
+                      if (key === 'Backspace') {
+                        e.preventDefault();
+                        stopBackspace();
+                      }
                     }}
-                    onClick={() => {
-                      if (key !== 'Backspace') handleKey(key);
+                    onClick={(e) => {
+                      if (key !== 'Backspace') {
+                        handleKey(key);
+                      } else {
+                        e.preventDefault();
+                      }
                     }}
                   >
                     {getKeyLabel(key)}
