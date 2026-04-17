@@ -11,6 +11,16 @@ export default function App() {
   const [showKeyboard, setShowKeyboard] = useState(true);
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
   const [isArabic, setIsArabic] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    // Add/remove selection class on previous and new selected image
+    const wrappers = document.querySelectorAll('.image-wrapper');
+    wrappers.forEach(w => w.classList.remove('selected'));
+    if (selectedImage) {
+      selectedImage.classList.add('selected');
+    }
+  }, [selectedImage]);
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -98,10 +108,82 @@ export default function App() {
       if (value === 'p') {
         document.execCommand('fontSize', false, '16px');
       }
+    } else if (command.startsWith('image')) {
+      handleImageFormat(command, value);
     } else {
       document.execCommand(command, false, value);
     }
     editorRef.current.focus();
+  };
+
+  const handleImageFormat = (command: string, value?: string) => {
+    if (!selectedImage) return;
+    const img = selectedImage.querySelector('img');
+    if (!img) return;
+
+    switch (command) {
+      case 'imageShape':
+        if (value === 'circle') {
+          img.style.borderRadius = '50%';
+          img.style.aspectRatio = '1/1';
+          img.style.objectFit = 'cover';
+          img.style.filter = 'none';
+        } else if (value === 'rounded') {
+          img.style.borderRadius = '20px';
+          img.style.aspectRatio = 'auto';
+          img.style.filter = 'none';
+        } else if (value === 'soft') {
+          img.style.borderRadius = '0px';
+          img.style.filter = 'blur(4px)';
+          img.style.aspectRatio = 'auto';
+        } else {
+          img.style.borderRadius = '0px';
+          img.style.aspectRatio = 'auto';
+          img.style.filter = 'none';
+        }
+        break;
+      case 'imageShadow':
+        img.style.boxShadow = value === 'none' ? 'none' : '0 10px 25px -5px rgba(0,0,0,0.3)';
+        break;
+      case 'imageBorder':
+        img.style.border = value === 'none' ? 'none' : `4px solid ${value}`;
+        break;
+      case 'imageDelete':
+        selectedImage.remove();
+        setSelectedImage(null);
+        break;
+      case 'imageWrap':
+        if (value === 'inline') {
+          selectedImage.style.position = 'relative';
+          selectedImage.style.display = 'inline-block';
+          selectedImage.style.float = 'none';
+          selectedImage.style.margin = '10px';
+          selectedImage.style.left = 'auto';
+          selectedImage.style.top = 'auto';
+        } else if (value === 'block') {
+          selectedImage.style.position = 'relative';
+          selectedImage.style.display = 'block';
+          selectedImage.style.float = 'none';
+          selectedImage.style.margin = '20px auto';
+          selectedImage.style.left = 'auto';
+          selectedImage.style.top = 'auto';
+        } else if (value === 'float-left') {
+          selectedImage.style.position = 'relative';
+          selectedImage.style.display = 'inline-block';
+          selectedImage.style.float = 'left';
+          selectedImage.style.margin = '10px 20px 10px 0';
+          selectedImage.style.left = 'auto';
+          selectedImage.style.top = 'auto';
+        } else if (value === 'float-right') {
+          selectedImage.style.position = 'relative';
+          selectedImage.style.display = 'inline-block';
+          selectedImage.style.float = 'right';
+          selectedImage.style.margin = '10px 0 10px 20px';
+          selectedImage.style.left = 'auto';
+          selectedImage.style.top = 'auto';
+        }
+        break;
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,9 +195,9 @@ export default function App() {
         editorRef.current?.focus();
         // Insert image with a wrapper for better control and resizing handles simulation
         const imgHtml = `
-          <div class="image-wrapper" style="display: inline-block; position: relative; margin: 10px; cursor: move; user-select: none;" contenteditable="false">
-            <img src="${dataUrl}" style="display: block; width: 200px; height: auto; pointer-events: none;" />
-            <div class="resize-handle" style="position: absolute; bottom: 0; right: 0; width: 15px; height: 15px; background: #2b579a; cursor: nwse-resize; border-radius: 2px;"></div>
+          <div class="image-wrapper" style="display: inline-block; position: relative; margin: 10px; cursor: move; user-select: none; max-width: 100%; transition: all 0.3s;" contenteditable="false">
+            <img src="${dataUrl}" style="display: block; width: 200px; height: auto; pointer-events: none; border-radius: 0;" />
+            <div class="resize-handle" style="position: absolute; bottom: -5px; right: -5px; width: 24px; height: 24px; background: #2b579a; cursor: nwse-resize; border-radius: 4px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>
           </div>
           <p contenteditable="true">&nbsp;</p>
         `;
@@ -191,6 +273,12 @@ export default function App() {
     const handlePointerDown = (e: PointerEvent) => {
       const target = e.target as HTMLElement;
       
+      // Clear selection if clicking elsewhere in editor
+      if (target === editor) {
+        setSelectedImage(null);
+        return;
+      }
+
       // Handle Resizing
       if (target.classList.contains('resize-handle')) {
         isResizing = true;
@@ -200,23 +288,26 @@ export default function App() {
           if (img) {
             startWidth = img.offsetWidth;
             startX = e.clientX;
+            setSelectedImage(currentElement);
             e.preventDefault();
             e.stopPropagation();
           }
         }
       } 
       // Handle Dragging
-      else if (target.classList.contains('image-wrapper')) {
+      else if (target.classList.contains('image-wrapper') || target.closest('.image-wrapper')) {
         isDragging = true;
-        currentElement = target;
+        currentElement = (target.classList.contains('image-wrapper') ? target : target.closest('.image-wrapper')) as HTMLElement;
         startX = e.clientX;
         startY = e.clientY;
-        const rect = currentElement.getBoundingClientRect();
+        setSelectedImage(currentElement);
         // We use relative positioning for dragging within the editor
         startLeft = currentElement.offsetLeft;
         startTop = currentElement.offsetTop;
         e.preventDefault();
         e.stopPropagation();
+      } else {
+        setSelectedImage(null);
       }
     };
 
@@ -280,6 +371,7 @@ export default function App() {
             onToggleKeyboard={() => setShowKeyboard(!showKeyboard)} 
             isCollapsed={isRibbonCollapsed}
             onToggleCollapse={() => setIsRibbonCollapsed(!isRibbonCollapsed)}
+            hasSelectedImage={!!selectedImage}
           />
         </div>
         

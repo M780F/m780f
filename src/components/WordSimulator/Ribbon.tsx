@@ -3,7 +3,7 @@ import {
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Type, List, ListOrdered, Image as ImageIcon, Table as TableIcon,
   Keyboard, Save, Undo, Redo, Search, Printer, FileText, ChevronDown, Palette,
-  Paperclip
+  Paperclip, Square, Circle, Layout, Layers, Grid, Frame, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -20,15 +20,25 @@ interface RibbonProps {
   onToggleKeyboard: () => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  hasSelectedImage?: boolean;
 }
 
 export const Ribbon: React.FC<RibbonProps> = ({ 
   onFormat, 
   onToggleKeyboard, 
   isCollapsed = false, 
-  onToggleCollapse 
+  onToggleCollapse,
+  hasSelectedImage = false
 }) => {
   const [activeTab, setActiveTab] = React.useState('home');
+
+  React.useEffect(() => {
+    if (hasSelectedImage) {
+      setActiveTab('picture-format');
+    } else if (activeTab === 'picture-format') {
+      setActiveTab('home');
+    }
+  }, [hasSelectedImage]);
 
   const handleFormatClick = (e: React.MouseEvent, command: string, value?: string) => {
     e.preventDefault();
@@ -76,6 +86,18 @@ export const Ribbon: React.FC<RibbonProps> = ({
                 {tab}
               </button>
             ))}
+            {hasSelectedImage && (
+              <button
+                onClick={() => setActiveTab('picture-format')}
+                className={`px-4 sm:px-6 text-[11px] sm:text-sm h-full font-bold transition-colors uppercase italic ${
+                  activeTab === 'picture-format' 
+                    ? 'bg-[#f3f2f1] text-[#2b579a] border-t border-x border-gray-200 rounded-t-sm'
+                    : 'text-blue-600 hover:bg-blue-50'
+                }`}
+              >
+                Picture Format
+              </button>
+            )}
           </div>
           <div className="ml-auto flex items-center gap-1 sm:gap-2 px-1 sm:px-2">
              <Button 
@@ -269,6 +291,101 @@ export const Ribbon: React.FC<RibbonProps> = ({
                     </Button>
                   </div>
                   <span className="text-[8px] sm:text-[10px] text-[#2b579a] uppercase font-bold tracking-tighter">Views</span>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'picture-format' && (
+              <div className="m-0 p-1 sm:p-2 flex items-center justify-start gap-3 overflow-x-auto h-[105px] sm:h-auto border-b border-gray-300 w-full animate-in fade-in slide-in-from-top-1 duration-200">
+                {/* Shape Styles */}
+                <div className="flex flex-col items-center gap-1 px-3 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200">
+                  <div className="flex gap-3">
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'imageShape', 'square')}>
+                      <Square size={18} className="text-[#2b579a]" />
+                      <span className="text-[9px] sm:text-[11px]">Square</span>
+                    </Button>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'imageShape', 'rounded')}>
+                      <Square size={18} className="text-[#2b579a] rounded-sm bg-blue-50" />
+                      <span className="text-[9px] sm:text-[11px]">Rounded</span>
+                    </Button>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'imageShape', 'circle')}>
+                      <Circle size={18} className="text-[#2b579a]" />
+                      <span className="text-[9px] sm:text-[11px]">Circle</span>
+                    </Button>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'imageShape', 'soft')}>
+                      <div className="w-[18px] h-[18px] rounded-full bg-[#2b579a] blur-[1px]" />
+                      <span className="text-[9px] sm:text-[11px]">Soft</span>
+                    </Button>
+                  </div>
+                  <span className="text-[8px] sm:text-[10px] text-[#2b579a] uppercase font-bold tracking-tighter">Picture Styles</span>
+                </div>
+
+                {/* Border Options */}
+                <div className="flex flex-col items-center gap-1 px-3 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200">
+                  <div className="flex gap-1.5 items-center">
+                    <Select onValueChange={(v) => onFormat('imageBorder', v)}>
+                      <SelectTrigger className="h-8 w-[100px] text-[11px] bg-white border-gray-300 font-semibold text-gray-800">
+                        <SelectValue placeholder="Border Color" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No Border</SelectItem>
+                        <SelectItem value="black">Black</SelectItem>
+                        <SelectItem value="blue">Blue</SelectItem>
+                        <SelectItem value="red">Red</SelectItem>
+                        <SelectItem value="gold">Gold</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <span className="text-[8px] sm:text-[10px] text-[#2b579a] uppercase font-bold tracking-tighter">Picture Border</span>
+                </div>
+
+                {/* Shadow / Effects */}
+                <div className="flex flex-col items-center gap-1 px-3 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200">
+                  <div className="flex gap-3">
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'imageShadow', 'on')}>
+                      <Layers size={18} className="text-[#2b579a]" />
+                      <span className="text-[9px] sm:text-[11px]">Shadow</span>
+                    </Button>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'imageShadow', 'none')}>
+                      <Layers size={18} className="text-gray-400" />
+                      <span className="text-[9px] sm:text-[11px]">No Shadow</span>
+                    </Button>
+                  </div>
+                  <span className="text-[8px] sm:text-[10px] text-[#2b579a] uppercase font-bold tracking-tighter">Effects</span>
+                </div>
+
+                {/* Layout / Wrapping */}
+                <div className="flex flex-col items-center gap-1 px-3 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200">
+                  <div className="flex gap-3">
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'imageWrap', 'inline')}>
+                      <Layers size={18} className="text-[#2b579a]" />
+                      <span className="text-[9px] sm:text-[11px]">Inline</span>
+                    </Button>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'imageWrap', 'block')}>
+                      <Layout size={18} className="text-[#2b579a]" />
+                      <span className="text-[9px] sm:text-[11px]">Block</span>
+                    </Button>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'imageWrap', 'float-left')}>
+                      <Grid size={18} className="text-[#2b579a]" />
+                      <span className="text-[9px] sm:text-[11px]">Left</span>
+                    </Button>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'imageWrap', 'float-right')}>
+                      <Grid size={18} className="text-[#2b579a] scale-x-[-1]" />
+                      <span className="text-[9px] sm:text-[11px]">Right</span>
+                    </Button>
+                  </div>
+                  <span className="text-[8px] sm:text-[10px] text-[#2b579a] uppercase font-bold tracking-tighter">Arrange / Wrap</span>
+                </div>
+
+                {/* Delete / Actions */}
+                <div className="flex flex-col items-center gap-1 px-3 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200">
+                  <div className="flex gap-3">
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-red-50 text-red-500" onMouseDown={(e) => handleFormatClick(e, 'imageDelete')}>
+                      <Trash2 size={18} />
+                      <span className="text-[9px] sm:text-[11px]">Remove</span>
+                    </Button>
+                  </div>
+                  <span className="text-[8px] sm:text-[10px] text-red-500 uppercase font-bold tracking-tighter">Actions</span>
                 </div>
               </div>
             )}

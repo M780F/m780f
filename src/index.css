@@ -148,3 +148,26 @@
   margin-top: 1em;
   margin-bottom: 1em;
 }
+
+/* Image Manipulation Styles */
+.image-wrapper {
+  transition: box-shadow 0.2s;
+}
+
+.image-wrapper.selected {
+  outline: 2px solid #2b579a;
+  box-shadow: 0 0 0 4px rgba(43, 87, 154, 0.1);
+}
+
+.image-wrapper.selected .resize-handle {
+  display: block !important;
+}
+
+.resize-handle {
+  display: none !important;
+  z-index: 20;
+}
+
+.image-wrapper:hover .resize-handle {
+  display: block !important;
+}
