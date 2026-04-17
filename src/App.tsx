@@ -16,6 +16,8 @@ export default function App() {
     bold: boolean;
     italic: boolean;
     underline: boolean;
+    subscript: boolean;
+    superscript: boolean;
     list: boolean;
     orderedList: boolean;
     align: string;
@@ -23,67 +25,90 @@ export default function App() {
     fontName: string;
     blockType: string;
     color: string;
+    lineHeight: string;
   }>({
     bold: false,
     italic: false,
     underline: false,
+    subscript: false,
+    superscript: false,
     list: false,
     orderedList: false,
     align: 'left',
     fontSize: '3',
     fontName: 'Arial',
     blockType: 'p',
-    color: '#000000'
+    color: '#000000',
+    lineHeight: '1.2'
   });
 
-  useEffect(() => {
-    const updateStyles = () => {
-      if (typeof document === 'undefined') return;
-      
-      const styles = {
-        bold: document.queryCommandState('bold'),
-        italic: document.queryCommandState('italic'),
-        underline: document.queryCommandState('underline'),
-        list: document.queryCommandState('insertUnorderedList'),
-        orderedList: document.queryCommandState('insertOrderedList'),
-        align: 
-          document.queryCommandState('justifyCenter') ? 'center' :
-          document.queryCommandState('justifyRight') ? 'right' :
-          document.queryCommandState('justifyFull') ? 'justify' : 'left',
-        fontSize: (() => {
-          const val = document.queryCommandValue('fontSize');
-          // If it's a legacy value (1-7), return it
-          if (['1', '2', '3', '4', '5', '6', '7'].includes(val)) return val;
-          
-          // Otherwise check computed style for precise pt/px values
-          const selection = window.getSelection();
-          if (selection && selection.rangeCount > 0) {
-            let node = selection.anchorNode as any;
-            if (node.nodeType === 3) node = node.parentNode;
-            if (node) {
-              const fs = window.getComputedStyle(node).fontSize;
-              // Map common Word-like pixel/pt sizes back to 1-7 for the selector
-              if (fs.includes('10px') || fs.includes('8pt')) return '1';
-              if (fs.includes('13px') || fs.includes('10pt')) return '2';
-              if (fs.includes('16px') || fs.includes('12pt') || fs.includes('11pt')) return '3';
-              if (fs.includes('18px') || fs.includes('14pt')) return '4';
-              if (fs.includes('24px') || fs.includes('18pt')) return '5';
-              if (fs.includes('32px') || fs.includes('24pt')) return '6';
-              if (fs.includes('48px') || fs.includes('36pt')) return '7';
+  const updateActiveStyles = () => {
+    if (typeof document === 'undefined') return;
+    
+    const styles = {
+      bold: document.queryCommandState('bold'),
+      italic: document.queryCommandState('italic'),
+      underline: document.queryCommandState('underline'),
+      subscript: document.queryCommandState('subscript'),
+      superscript: document.queryCommandState('superscript'),
+      list: document.queryCommandState('insertUnorderedList'),
+      orderedList: document.queryCommandState('insertOrderedList'),
+      align: 
+        document.queryCommandState('justifyCenter') ? 'center' :
+        document.queryCommandState('justifyRight') ? 'right' :
+        document.queryCommandState('justifyFull') ? 'justify' : 'left',
+      fontSize: (() => {
+        const val = document.queryCommandValue('fontSize');
+        if (['1', '2', '3', '4', '5', '6', '7'].includes(val)) return val;
+        
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          let node = selection.anchorNode as any;
+          if (node.nodeType === 3) node = node.parentNode;
+          if (node) {
+            const fs = window.getComputedStyle(node).fontSize;
+            if (fs.includes('10px') || fs.includes('8pt')) return '1';
+            if (fs.includes('13px') || fs.includes('10pt')) return '2';
+            if (fs.includes('16px') || fs.includes('12pt') || fs.includes('11pt')) return '3';
+            if (fs.includes('18px') || fs.includes('14pt')) return '4';
+            if (fs.includes('24px') || fs.includes('18pt')) return '5';
+            if (fs.includes('32px') || fs.includes('24pt')) return '6';
+            if (fs.includes('48px') || fs.includes('36pt')) return '7';
+          }
+        }
+        return val || '3';
+      })(),
+      fontName: (document.queryCommandValue('fontName') || 'Arial').replace(/['"]/g, ''),
+      blockType: document.queryCommandValue('formatBlock') || 'p',
+      color: document.queryCommandValue('foreColor') || '#000000',
+      lineHeight: (() => {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          let node = selection.anchorNode as any;
+          if (node.nodeType === 3) node = node.parentNode;
+          if (node) {
+            const lh = window.getComputedStyle(node).lineHeight;
+            if (lh === 'normal') return '1.2';
+            const fs = parseFloat(window.getComputedStyle(node).fontSize);
+            const lhVal = parseFloat(lh);
+            if (!isNaN(fs) && !isNaN(lhVal)) {
+              const ratio = lhVal / fs;
+              if (ratio > 1.8) return '2.0';
+              if (ratio > 1.3) return '1.5';
+              return '1.0';
             }
           }
-          return val || '3';
-        })(),
-        fontName: (document.queryCommandValue('fontName') || 'Arial').replace(/['"]/g, ''),
-        blockType: document.queryCommandValue('formatBlock') || 'p',
-        color: document.queryCommandValue('foreColor') || '#000000'
-      };
-      
-      setActiveStyles(styles);
+        }
+        return '1.2';
+      })()
     };
+    
+    setActiveStyles(styles);
+  };
 
-    document.addEventListener('selectionchange', updateStyles);
-    return () => document.removeEventListener('selectionchange', updateStyles);
+  useEffect(() => {
+    document.addEventListener('selectionchange', updateActiveStyles);
+    return () => document.removeEventListener('selectionchange', updateActiveStyles);
   }, []);
 
   useEffect(() => {
@@ -148,6 +173,18 @@ export default function App() {
       applyModernFontSize(value || '3');
     } else if (command === 'fontName') {
       document.execCommand('fontName', false, value);
+    } else if (command === 'subscript') {
+      // Toggle off superscript if active
+      if (document.queryCommandState('superscript')) {
+        document.execCommand('superscript', false);
+      }
+      document.execCommand('subscript', false);
+    } else if (command === 'superscript') {
+      // Toggle off subscript if active
+      if (document.queryCommandState('subscript')) {
+        document.execCommand('subscript', false);
+      }
+      document.execCommand('superscript', false);
     } else if (command === 'insertTable') {
       const rows = 3;
       const cols = 3;
@@ -165,6 +202,39 @@ export default function App() {
       imageInputRef.current?.click();
     } else if (command === 'insertFile') {
       fileInputRef.current?.click();
+    } else if (command === 'orderedListType') {
+      // First ensure we have a list
+      if (!activeStyles.orderedList) {
+        document.execCommand('insertOrderedList', false);
+      }
+      
+      // Post-process: Find the OL parent and apply style
+      setTimeout(() => {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          let node = selection.anchorNode as Node | null;
+          while (node && node !== editorRef.current) {
+            if (node.nodeName === 'OL') {
+              (node as HTMLElement).style.listStyleType = value || 'decimal';
+              break;
+            }
+            node = node.parentNode;
+          }
+        }
+      }, 0);
+    } else if (command === 'lineHeight') {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        let node = selection.anchorNode as Node | null;
+        // Move up to the closest block element or LI
+        while (node && node !== editorRef.current) {
+          if (node.nodeType === 1 && (['P', 'DIV', 'H1', 'H2', 'H3', 'LI'].includes((node as HTMLElement).tagName))) {
+            (node as HTMLElement).style.lineHeight = value || '1.2';
+            break;
+          }
+          node = node.parentNode;
+        }
+      }
     } else if (command === 'formatBlock') {
       const currentBlock = document.queryCommandValue('formatBlock').toLowerCase();
       const targetBlock = value?.toLowerCase();
@@ -196,7 +266,12 @@ export default function App() {
     } else {
       document.execCommand(command, false, value);
     }
-    editorRef.current.focus();
+    
+    // Force editor focus and style refresh
+    if (editorRef.current) {
+      editorRef.current.focus();
+    }
+    updateActiveStyles();
   };
 
   const applyModernFontSize = (sizeValue: string) => {

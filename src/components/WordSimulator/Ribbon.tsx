@@ -3,7 +3,8 @@ import {
   Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify,
   Type, List, ListOrdered, Image as ImageIcon, Table as TableIcon,
   Keyboard, Save, Undo, Redo, Search, Printer, FileText, ChevronDown, Palette,
-  Paperclip, Square, Circle, Layout, Layers, Grid, Frame, Trash2
+  Paperclip, Square, Circle, Layout, Layers, Grid, Frame, Trash2, Rows,
+  Subscript, Superscript
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -25,6 +26,8 @@ interface RibbonProps {
     bold: boolean;
     italic: boolean;
     underline: boolean;
+    subscript: boolean;
+    superscript: boolean;
     list: boolean;
     orderedList: boolean;
     align: string;
@@ -32,6 +35,7 @@ interface RibbonProps {
     fontName: string;
     blockType: string;
     color: string;
+    lineHeight: string;
   };
 }
 
@@ -45,13 +49,16 @@ export const Ribbon: React.FC<RibbonProps> = ({
     bold: false,
     italic: false,
     underline: false,
+    subscript: false,
+    superscript: false,
     list: false,
     orderedList: false,
     align: 'left',
     fontSize: '3',
     fontName: 'Arial',
     blockType: 'p',
-    color: '#000000'
+    color: '#000000',
+    lineHeight: '1.2'
   }
 }) => {
   const [activeTab, setActiveTab] = React.useState('home');
@@ -222,22 +229,55 @@ export const Ribbon: React.FC<RibbonProps> = ({
                     <Button variant={activeStyles.bold ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.bold ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'bold')}><Bold size={16} /></Button>
                     <Button variant={activeStyles.italic ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.italic ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'italic')}><Italic size={16} /></Button>
                     <Button variant={activeStyles.underline ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.underline ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'underline')}><Underline size={16} /></Button>
+                    <Separator orientation="vertical" className="h-6 mx-0.5 bg-gray-300" />
+                    <Button variant={activeStyles.subscript ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.subscript ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'subscript')}><Subscript size={16} /></Button>
+                    <Button variant={activeStyles.superscript ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.superscript ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'superscript')}><Superscript size={16} /></Button>
                   </div>
                   <span className="text-[8px] text-[#2b579a] uppercase font-bold tracking-tighter">Font</span>
                 </div>
 
                 {/* Paragraph Group */}
-                <div className="flex flex-col items-center gap-1 px-2 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200 min-w-[140px]">
+                <div className="flex flex-col items-center gap-1 px-2 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200 min-w-[170px]">
                   <div className="flex items-center gap-1.5">
-                    <div className="flex items-center gap-1">
-                      <Button variant={activeStyles.list ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.list ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'insertUnorderedList')}><List size={16} /></Button>
-                      <Button variant={activeStyles.orderedList ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.orderedList ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'insertOrderedList')}><ListOrdered size={16} /></Button>
-                    </div>
-                    <Separator orientation="vertical" className="h-6 mx-0.5 bg-gray-300" />
                     <div className="flex items-center gap-1">
                       <Button variant={activeStyles.align === 'left' ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.align === 'left' ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'justifyLeft')}><AlignLeft size={16} /></Button>
                       <Button variant={activeStyles.align === 'center' ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.align === 'center' ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'justifyCenter')}><AlignCenter size={16} /></Button>
                       <Button variant={activeStyles.align === 'right' ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.align === 'right' ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'justifyRight')}><AlignRight size={16} /></Button>
+                    </div>
+                    
+                    <Separator orientation="vertical" className="h-6 mx-0.5 bg-gray-300" />
+                    
+                    <div className="flex items-center gap-0.5">
+                      <Button title="Bullets" variant={activeStyles.list ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.list ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'insertUnorderedList')}><List size={16} /></Button>
+                      
+                      <div className="flex items-center group">
+                        <Button title="Numbering" variant={activeStyles.orderedList ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border-y border-l rounded-r-none border-transparent ${activeStyles.orderedList ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50 border-gray-200'}`} onMouseDown={(e) => handleFormatClick(e, 'insertOrderedList')}><ListOrdered size={16} /></Button>
+                        <Select onValueChange={(v) => onFormat('orderedListType', v)}>
+                          <SelectTrigger className="h-8 w-5 px-0 bg-white border-y border-r border-gray-200 rounded-l-none hover:bg-blue-50 flex items-center justify-center transition-colors">
+                             <ChevronDown size={12} className="text-gray-500" />
+                          </SelectTrigger>
+                          <SelectContent className="min-w-[140px]">
+                            <SelectItem value="decimal">1, 2, 3</SelectItem>
+                            <SelectItem value="lower-alpha">a, b, c</SelectItem>
+                            <SelectItem value="upper-alpha">A, B, C</SelectItem>
+                            <SelectItem value="lower-roman">i, ii, iii</SelectItem>
+                            <SelectItem value="upper-roman">I, II, III</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex items-center ml-0.5">
+                        <Select onValueChange={(v) => onFormat('lineHeight', v)}>
+                          <SelectTrigger title="Line Spacing" className="h-8 w-8 px-0 bg-white border border-gray-200 hover:bg-blue-50 flex items-center justify-center transition-colors">
+                             <Rows size={16} className="text-[#2b579a]" />
+                          </SelectTrigger>
+                          <SelectContent className="min-w-[120px]">
+                            <SelectItem value="1.0">Single (1.0)</SelectItem>
+                            <SelectItem value="1.5">1.5 lines</SelectItem>
+                            <SelectItem value="2.0">Double (2.0)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
                   <span className="text-[8px] text-[#2b579a] uppercase font-bold tracking-tighter">Paragraph</span>
