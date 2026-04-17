@@ -12,6 +12,79 @@ export default function App() {
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
   const [isArabic, setIsArabic] = useState(false);
   const [selectedImage, setSelectedImage] = useState<HTMLElement | null>(null);
+  const [activeStyles, setActiveStyles] = useState<{
+    bold: boolean;
+    italic: boolean;
+    underline: boolean;
+    list: boolean;
+    orderedList: boolean;
+    align: string;
+    fontSize: string;
+    fontName: string;
+    blockType: string;
+    color: string;
+  }>({
+    bold: false,
+    italic: false,
+    underline: false,
+    list: false,
+    orderedList: false,
+    align: 'left',
+    fontSize: '3',
+    fontName: 'Arial',
+    blockType: 'p',
+    color: '#000000'
+  });
+
+  useEffect(() => {
+    const updateStyles = () => {
+      if (typeof document === 'undefined') return;
+      
+      const styles = {
+        bold: document.queryCommandState('bold'),
+        italic: document.queryCommandState('italic'),
+        underline: document.queryCommandState('underline'),
+        list: document.queryCommandState('insertUnorderedList'),
+        orderedList: document.queryCommandState('insertOrderedList'),
+        align: 
+          document.queryCommandState('justifyCenter') ? 'center' :
+          document.queryCommandState('justifyRight') ? 'right' :
+          document.queryCommandState('justifyFull') ? 'justify' : 'left',
+        fontSize: (() => {
+          const val = document.queryCommandValue('fontSize');
+          // If it's a legacy value (1-7), return it
+          if (['1', '2', '3', '4', '5', '6', '7'].includes(val)) return val;
+          
+          // Otherwise check computed style for precise pt/px values
+          const selection = window.getSelection();
+          if (selection && selection.rangeCount > 0) {
+            let node = selection.anchorNode as any;
+            if (node.nodeType === 3) node = node.parentNode;
+            if (node) {
+              const fs = window.getComputedStyle(node).fontSize;
+              // Map common Word-like pixel/pt sizes back to 1-7 for the selector
+              if (fs.includes('10px') || fs.includes('8pt')) return '1';
+              if (fs.includes('13px') || fs.includes('10pt')) return '2';
+              if (fs.includes('16px') || fs.includes('12pt') || fs.includes('11pt')) return '3';
+              if (fs.includes('18px') || fs.includes('14pt')) return '4';
+              if (fs.includes('24px') || fs.includes('18pt')) return '5';
+              if (fs.includes('32px') || fs.includes('24pt')) return '6';
+              if (fs.includes('48px') || fs.includes('36pt')) return '7';
+            }
+          }
+          return val || '3';
+        })(),
+        fontName: (document.queryCommandValue('fontName') || 'Arial').replace(/['"]/g, ''),
+        blockType: document.queryCommandValue('formatBlock') || 'p',
+        color: document.queryCommandValue('foreColor') || '#000000'
+      };
+      
+      setActiveStyles(styles);
+    };
+
+    document.addEventListener('selectionchange', updateStyles);
+    return () => document.removeEventListener('selectionchange', updateStyles);
+  }, []);
 
   useEffect(() => {
     // Add/remove selection class on previous and new selected image
@@ -72,17 +145,7 @@ export default function App() {
     document.execCommand('styleWithCSS', false, true as any);
     
     if (command === 'fontSize') {
-      // Map 1-7 to actual pixel sizes for better iPhone support
-      const sizeMap: Record<string, string> = {
-        '1': '12px',
-        '2': '14px',
-        '3': '16px',
-        '4': '18px',
-        '5': '24px',
-        '6': '32px',
-        '7': '48px'
-      };
-      document.execCommand('fontSize', false, sizeMap[value || '3']);
+      applyModernFontSize(value || '3');
     } else if (command === 'fontName') {
       document.execCommand('fontName', false, value);
     } else if (command === 'insertTable') {
@@ -103,10 +166,30 @@ export default function App() {
     } else if (command === 'insertFile') {
       fileInputRef.current?.click();
     } else if (command === 'formatBlock') {
-      document.execCommand('formatBlock', false, `<${value}>`);
-      // If switching back to Normal (p), reset font size to default (16px)
-      if (value === 'p') {
-        document.execCommand('fontSize', false, '16px');
+      const currentBlock = document.queryCommandValue('formatBlock').toLowerCase();
+      const targetBlock = value?.toLowerCase();
+      
+      // Microsoft Word Style application:
+      // Applying a style usually resets character formatting to the style's default
+      if (currentBlock === targetBlock) {
+        document.execCommand('formatBlock', false, '<p>');
+        // Word's Normal size is typically 11pt/12pt
+        applyModernFontSize('3');
+      } else {
+        document.execCommand('formatBlock', false, `<${value}>`);
+        // When applying a heading, browsers often keep old font size. 
+        // We force it to reset to heading default unless it's a paragraph.
+        if (value !== 'p') {
+          // Headings in Word have distinct sizes
+          const headingSizes: Record<string, string> = {
+            'h1': '7', // approx 24-36pt
+            'h2': '6', // approx 18-24pt
+            'h3': '5'  // approx 14-18pt
+          };
+          applyModernFontSize(headingSizes[value?.toLowerCase() || 'h1'] || '4');
+        } else {
+          applyModernFontSize('3');
+        }
       }
     } else if (command.startsWith('image')) {
       handleImageFormat(command, value);
@@ -114,6 +197,104 @@ export default function App() {
       document.execCommand(command, false, value);
     }
     editorRef.current.focus();
+  };
+
+  const applyModernFontSize = (sizeValue: string) => {
+    // Exact pt mapping equivalent to Word
+    const sizeMap: Record<string, string> = {
+      '1': '8pt',
+      '2': '10pt',
+      '3': '11pt',
+      '4': '14pt',
+      '5': '18pt',
+      '6': '24pt',
+      '7': '36pt'
+    };
+    
+    const ptSize = sizeMap[sizeValue] || '11pt';
+    const selection = window.getSelection();
+    if (!selection?.rangeCount) return;
+
+    const range = selection.getRangeAt(0);
+
+    // Microsoft Word behavior: If selection, wrap it. If cursor, toggle for next chars.
+    if (range.collapsed) {
+      // Create a span that the user will type into
+      const span = document.createElement('span');
+      span.style.fontSize = ptSize;
+      // ZWSP to ensure the span exists and cursor can stay inside
+      span.appendChild(document.createTextNode('\u200B')); 
+      range.insertNode(span);
+      
+      const newRange = document.createRange();
+      newRange.setStart(span.firstChild!, 1);
+      newRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+    } else {
+      // Selection logic: Highlight multiple words/lines
+      const fragment = range.extractContents();
+      
+      // Helper to clean nested legacy font tags and font-size spans
+      const cleanNode = (node: Node) => {
+        if (node instanceof HTMLElement) {
+          // Remove old font-size styles to avoid conflicting spans
+          if (node.tagName === 'SPAN') {
+            node.style.fontSize = '';
+            if (node.style.length === 0) {
+              // Replace span with its children if it's now empty
+              while(node.firstChild) node.parentNode?.insertBefore(node.firstChild, node);
+              node.remove();
+            }
+          }
+          if (node.tagName === 'FONT') {
+             while(node.firstChild) node.parentNode?.insertBefore(node.firstChild, node);
+             node.remove();
+          }
+          Array.from(node.childNodes).forEach(cleanNode);
+        }
+      };
+
+      const wrapper = document.createElement('span');
+      wrapper.style.fontSize = ptSize;
+      
+      // Temporary container to clean the fragment
+      const temp = document.createElement('div');
+      temp.appendChild(fragment);
+      
+      // Deep clean to prevent nesting
+      const elements = temp.querySelectorAll('span, font');
+      elements.forEach(el => {
+        if (el instanceof HTMLElement) {
+          el.style.fontSize = '';
+          if (el.tagName === 'FONT' || (el.tagName === 'SPAN' && el.style.length === 0)) {
+            while(el.firstChild) el.parentNode?.insertBefore(el.firstChild, el);
+            el.remove();
+          }
+        }
+      });
+
+      wrapper.appendChild(temp);
+      
+      // Remove any block level div if we inserted any mistakenly
+      if (wrapper.firstChild && wrapper.firstChild.nodeName === 'DIV') {
+         while(wrapper.firstChild.firstChild) wrapper.appendChild(wrapper.firstChild.firstChild);
+         wrapper.removeChild(wrapper.firstChild);
+      }
+
+      range.insertNode(wrapper);
+      
+      // Keep selection on the new block
+      const newRange = document.createRange();
+      newRange.selectNodeContents(wrapper);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+    }
+    
+    // Fallback sync for active state detection
+    setTimeout(() => {
+      document.dispatchEvent(new Event('selectionchange'));
+    }, 0);
   };
 
   const handleImageFormat = (command: string, value?: string) => {
@@ -372,6 +553,7 @@ export default function App() {
             isCollapsed={isRibbonCollapsed}
             onToggleCollapse={() => setIsRibbonCollapsed(!isRibbonCollapsed)}
             hasSelectedImage={!!selectedImage}
+            activeStyles={activeStyles}
           />
         </div>
         

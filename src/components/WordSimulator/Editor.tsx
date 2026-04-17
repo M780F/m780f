@@ -34,6 +34,29 @@ export const Editor = forwardRef<HTMLDivElement, EditorProps>(({ content, onChan
             e.preventDefault();
             document.execCommand('insertText', false, '\t');
           }
+          
+          if (e.key === 'Enter') {
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0) {
+              const range = selection.getRangeAt(0);
+              let container = range.commonAncestorContainer as any;
+              
+              // Traverse up to find block element
+              while (container && container !== ref && !['H1', 'H2', 'H3', 'P', 'DIV'].includes(container.tagName)) {
+                container = container.parentNode;
+              }
+              
+              if (container && ['H1', 'H2', 'H3'].includes(container.tagName)) {
+                // If cursor is at the end of a heading, the next block should be a paragraph
+                // Browser default usually duplicates the H1/H2/H3 tag
+                setTimeout(() => {
+                  document.execCommand('formatBlock', false, '<p>');
+                  // Reset font size to default for body text
+                  document.execCommand('fontSize', false, '3');
+                }, 0);
+              }
+            }
+          }
         }}
       />
     </div>

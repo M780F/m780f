@@ -21,6 +21,18 @@ interface RibbonProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   hasSelectedImage?: boolean;
+  activeStyles?: {
+    bold: boolean;
+    italic: boolean;
+    underline: boolean;
+    list: boolean;
+    orderedList: boolean;
+    align: string;
+    fontSize: string;
+    fontName: string;
+    blockType: string;
+    color: string;
+  };
 }
 
 export const Ribbon: React.FC<RibbonProps> = ({ 
@@ -28,7 +40,19 @@ export const Ribbon: React.FC<RibbonProps> = ({
   onToggleKeyboard, 
   isCollapsed = false, 
   onToggleCollapse,
-  hasSelectedImage = false
+  hasSelectedImage = false,
+  activeStyles = {
+    bold: false,
+    italic: false,
+    underline: false,
+    list: false,
+    orderedList: false,
+    align: 'left',
+    fontSize: '3',
+    fontName: 'Arial',
+    blockType: 'p',
+    color: '#000000'
+  }
 }) => {
   const [activeTab, setActiveTab] = React.useState('home');
 
@@ -153,7 +177,7 @@ export const Ribbon: React.FC<RibbonProps> = ({
                 {/* Font Group */}
                 <div className="flex flex-col items-center gap-1 px-2 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200 min-w-[200px]">
                   <div className="flex items-center gap-1.5">
-                    <Select defaultValue="Arial" onValueChange={(v) => onFormat('fontName', v)}>
+                    <Select value={activeStyles.fontName} onValueChange={(v) => onFormat('fontName', v)}>
                       <SelectTrigger className="h-8 w-[85px] text-[11px] bg-white border-gray-300 font-semibold text-gray-800">
                         <SelectValue placeholder="Font" />
                       </SelectTrigger>
@@ -166,7 +190,7 @@ export const Ribbon: React.FC<RibbonProps> = ({
                       </SelectContent>
                     </Select>
                     
-                    <Select defaultValue="3" onValueChange={(v) => onFormat('fontSize', v)}>
+                    <Select value={activeStyles.fontSize} onValueChange={(v) => onFormat('fontSize', v)}>
                       <SelectTrigger className="h-8 w-[45px] text-[11px] bg-white border-gray-300 font-semibold text-gray-800">
                         <SelectValue placeholder="Size" />
                       </SelectTrigger>
@@ -181,9 +205,9 @@ export const Ribbon: React.FC<RibbonProps> = ({
                       </SelectContent>
                     </Select>
 
-                    <Select onValueChange={(v) => onFormat('foreColor', v)}>
+                    <Select value={activeStyles.color} onValueChange={(v) => onFormat('foreColor', v)}>
                       <SelectTrigger className="h-8 w-[40px] p-0 flex items-center justify-center bg-white border-gray-300">
-                        <Palette size={16} className="text-gray-600" />
+                        <Palette size={16} style={{ color: activeStyles.color }} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="#000000"><div className="flex items-center gap-2"><div className="w-3 h-3 bg-black rounded-full" /> Black</div></SelectItem>
@@ -195,9 +219,9 @@ export const Ribbon: React.FC<RibbonProps> = ({
                     </Select>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 border border-gray-100 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'bold')}><Bold size={16} /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 border border-gray-100 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'italic')}><Italic size={16} /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 border border-gray-100 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'underline')}><Underline size={16} /></Button>
+                    <Button variant={activeStyles.bold ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.bold ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'bold')}><Bold size={16} /></Button>
+                    <Button variant={activeStyles.italic ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.italic ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'italic')}><Italic size={16} /></Button>
+                    <Button variant={activeStyles.underline ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.underline ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'underline')}><Underline size={16} /></Button>
                   </div>
                   <span className="text-[8px] text-[#2b579a] uppercase font-bold tracking-tighter">Font</span>
                 </div>
@@ -206,14 +230,14 @@ export const Ribbon: React.FC<RibbonProps> = ({
                 <div className="flex flex-col items-center gap-1 px-2 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200 min-w-[140px]">
                   <div className="flex items-center gap-1.5">
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 border border-gray-100 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'insertUnorderedList')}><List size={16} /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 border border-gray-100 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'insertOrderedList')}><ListOrdered size={16} /></Button>
+                      <Button variant={activeStyles.list ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.list ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'insertUnorderedList')}><List size={16} /></Button>
+                      <Button variant={activeStyles.orderedList ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.orderedList ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'insertOrderedList')}><ListOrdered size={16} /></Button>
                     </div>
                     <Separator orientation="vertical" className="h-6 mx-0.5 bg-gray-300" />
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 border border-gray-100 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'justifyLeft')}><AlignLeft size={16} /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 border border-gray-100 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'justifyCenter')}><AlignCenter size={16} /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 border border-gray-100 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'justifyRight')}><AlignRight size={16} /></Button>
+                      <Button variant={activeStyles.align === 'left' ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.align === 'left' ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'justifyLeft')}><AlignLeft size={16} /></Button>
+                      <Button variant={activeStyles.align === 'center' ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.align === 'center' ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'justifyCenter')}><AlignCenter size={16} /></Button>
+                      <Button variant={activeStyles.align === 'right' ? "secondary" : "ghost"} size="icon" className={`h-8 w-8 border border-transparent ${activeStyles.align === 'right' ? 'bg-blue-100 border-blue-300 text-[#2b579a]' : 'hover:bg-blue-50'}`} onMouseDown={(e) => handleFormatClick(e, 'justifyRight')}><AlignRight size={16} /></Button>
                     </div>
                   </div>
                   <span className="text-[8px] text-[#2b579a] uppercase font-bold tracking-tighter">Paragraph</span>
@@ -221,8 +245,8 @@ export const Ribbon: React.FC<RibbonProps> = ({
 
                 {/* Styles Group */}
                 <div className="flex flex-col items-center gap-1 px-2 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200 min-w-[100px]">
-                  <Select onValueChange={(v) => onFormat('formatBlock', v)}>
-                    <SelectTrigger className="h-8 w-[90px] text-[11px] bg-white border-gray-300 font-semibold text-gray-800">
+                  <Select value={activeStyles.blockType} onValueChange={(v) => onFormat('formatBlock', v)}>
+                    <SelectTrigger className={`h-8 w-[90px] text-[11px] bg-white border-gray-300 font-semibold ${activeStyles.blockType !== 'p' ? 'text-[#2b579a] border-blue-300 bg-blue-50' : 'text-gray-800'}`}>
                       <SelectValue placeholder="Styles" />
                     </SelectTrigger>
                     <SelectContent>
