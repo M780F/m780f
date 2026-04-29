@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import html2pdf from 'html2pdf.js';
 import { Ribbon } from './components/WordSimulator/Ribbon';
 import { Editor } from './components/WordSimulator/Editor';
 import { StatusBar } from './components/WordSimulator/StatusBar';
@@ -261,6 +262,24 @@ export default function App() {
           applyModernFontSize('3');
         }
       }
+    } else if (command === 'exportPDF') {
+      const element = editorRef.current;
+      if (!element) return;
+      
+      const opt = {
+        margin:       [0.5, 0.5],
+        filename:     'Document1.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { 
+          scale: 2,
+          useCORS: true,
+          logging: false
+        },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+
+      // @ts-ignore
+      html2pdf().from(element).set(opt).save();
     } else if (command.startsWith('image')) {
       handleImageFormat(command, value);
     } else {

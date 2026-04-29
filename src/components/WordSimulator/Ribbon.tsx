@@ -4,7 +4,7 @@ import {
   Type, List, ListOrdered, Image as ImageIcon, Table as TableIcon,
   Keyboard, Save, Undo, Redo, Search, Printer, FileText, ChevronDown, Palette,
   Paperclip, Square, Circle, Layout, Layers, Grid, Frame, Trash2, Rows,
-  Subscript, Superscript
+  Subscript, Superscript, FileDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -155,6 +155,14 @@ export const Ribbon: React.FC<RibbonProps> = ({
                     <Button variant="ghost" className="justify-start text-white hover:bg-[#2b579a] h-7 sm:h-8 text-[10px] sm:text-xs">New</Button>
                     <Button variant="ghost" className="justify-start text-white hover:bg-[#2b579a] h-7 sm:h-8 text-[10px] sm:text-xs">Open</Button>
                     <Button variant="ghost" className="justify-start text-white hover:bg-[#2b579a] h-7 sm:h-8 text-[10px] sm:text-xs">Save</Button>
+                    <Button 
+                      variant="ghost" 
+                      className="justify-start text-white hover:bg-[#e26210] h-7 sm:h-8 text-[10px] sm:text-xs bg-[#d83b01] mt-auto font-bold"
+                      onMouseDown={(e) => handleFormatClick(e, 'exportPDF')}
+                    >
+                      <FileDown size={14} className="mr-2" />
+                      Export to PDF
+                    </Button>
                   </div>
                   <div className="flex-1 p-2 sm:p-4 flex flex-col justify-center">
                     <h3 className="text-sm sm:text-lg font-light mb-1 sm:mb-2">Good morning</h3>
@@ -345,6 +353,10 @@ export const Ribbon: React.FC<RibbonProps> = ({
               <div className="m-0 p-1 sm:p-2 flex items-center justify-start gap-3 overflow-x-auto h-[105px] sm:h-auto border-b border-gray-300 w-full">
                 <div className="flex flex-col items-center gap-1 px-3 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200">
                   <div className="flex gap-2">
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'exportPDF')}>
+                      <FileDown size={18} className="text-[#2b579a]" />
+                      <span className="text-[9px] sm:text-[11px]">PDF</span>
+                    </Button>
                     <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50">
                       <Printer size={18} className="text-[#2b579a]" />
                       <span className="text-[9px] sm:text-[11px]">Print</span>
