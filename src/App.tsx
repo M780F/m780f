@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import html2pdf from 'html2pdf.js';
+import katex from 'katex';
 import { Ribbon } from './components/WordSimulator/Ribbon';
 import { Editor } from './components/WordSimulator/Editor';
 import { StatusBar } from './components/WordSimulator/StatusBar';
 import { VirtualKeyboard } from './components/WordSimulator/VirtualKeyboard';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Button } from '@/components/ui/button';
 
 export default function App() {
   const [content, setContent] = useState('');
@@ -13,6 +15,10 @@ export default function App() {
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
   const [isArabic, setIsArabic] = useState(false);
   const [selectedImage, setSelectedImage] = useState<HTMLElement | null>(null);
+  const [isEquationModalOpen, setIsEquationModalOpen] = useState(false);
+  const [equationLaTeX, setEquationLaTeX] = useState('\\alpha^2 + \\beta^2 = \\gamma^2');
+  const [equationIsDisplayMode, setEquationIsDisplayMode] = useState(false);
+  const [editingEquationNode, setEditingEquationNode] = useState<HTMLElement | null>(null);
   const [activeStyles, setActiveStyles] = useState<{
     bold: boolean;
     italic: boolean;
@@ -42,6 +48,21 @@ export default function App() {
     color: '#000000',
     lineHeight: '1.2'
   });
+
+  // Auto-save to local storage
+  useEffect(() => {
+    const savedContent = localStorage.getItem('word-document-content');
+    if (savedContent && editorRef.current) {
+      editorRef.current.innerHTML = savedContent;
+      setContent(savedContent);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (content) {
+      localStorage.setItem('word-document-content', content);
+    }
+  }, [content]);
 
   const updateActiveStyles = () => {
     if (typeof document === 'undefined') return;
@@ -199,6 +220,11 @@ export default function App() {
       }
       tableHtml += '</table><p>&nbsp;</p>';
       document.execCommand('insertHTML', false, tableHtml);
+    } else if (command === 'insertEquation') {
+      setEditingEquationNode(null);
+      setEquationLaTeX('\\sigma = \\sqrt{\\frac{1}{N} \\sum_{i=1}^N (x_i - \\mu)^2}');
+      setEquationIsDisplayMode(false);
+      setIsEquationModalOpen(true);
     } else if (command === 'insertImage') {
       imageInputRef.current?.click();
     } else if (command === 'insertFile') {
@@ -241,28 +267,29 @@ export default function App() {
       const targetBlock = value?.toLowerCase();
       
       // Microsoft Word Style application:
-      // Applying a style usually resets character formatting to the style's default
       if (currentBlock === targetBlock) {
         document.execCommand('formatBlock', false, '<p>');
-        // Word's Normal size is typically 11pt/12pt
         applyModernFontSize('3');
       } else {
         document.execCommand('formatBlock', false, `<${value}>`);
-        // When applying a heading, browsers often keep old font size. 
-        // We force it to reset to heading default unless it's a paragraph.
-        if (value !== 'p') {
-          // Headings in Word have distinct sizes
-          const headingSizes: Record<string, string> = {
-            'h1': '7', // approx 24-36pt
-            'h2': '6', // approx 18-24pt
-            'h3': '5'  // approx 14-18pt
-          };
-          applyModernFontSize(headingSizes[value?.toLowerCase() || 'h1'] || '4');
-        } else {
+        
+        // Map Heading and special styles to Word-like default sizes
+        const defaultSizes: Record<string, string> = {
+          'h1': '7', // 36pt
+          'h2': '6', // 24pt
+          'h3': '5', // 18pt
+          'h4': '4', // 14pt
+          'h5': '3', // 11pt bold
+          'h6': '2', // 10pt bold
+        };
+        
+        if (defaultSizes[targetBlock || '']) {
+          applyModernFontSize(defaultSizes[targetBlock || '']);
+        } else if (targetBlock === 'p') {
           applyModernFontSize('3');
         }
       }
-    } else if (command === 'exportPDF') {
+    } else if (command === 'exportPDF' || command === 'save') {
       const element = editorRef.current;
       if (!element) return;
       
@@ -280,6 +307,10 @@ export default function App() {
 
       // @ts-ignore
       html2pdf().from(element).set(opt).save();
+    } else if (command === 'undo') {
+      document.execCommand('undo', false);
+    } else if (command === 'redo') {
+      document.execCommand('redo', false);
     } else if (command.startsWith('image')) {
       handleImageFormat(command, value);
     } else {
@@ -503,6 +534,77 @@ export default function App() {
     e.target.value = '';
   };
 
+  const insertAtCursor = (text: string) => {
+    const textarea = document.getElementById('latex-editor') as HTMLTextAreaElement;
+    if (textarea) {
+      textarea.focus();
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      
+      // Attempt to use browsers built-in insert command for undo history
+      try {
+        if (!document.execCommand('insertText', false, text)) {
+           // Fallback if execCommand fails
+           const val = textarea.value;
+           setEquationLaTeX(val.substring(0, start) + text + val.substring(end));
+        }
+      } catch (e) {
+        const val = textarea.value;
+        setEquationLaTeX(val.substring(0, start) + text + val.substring(end));
+      }
+
+      // Update cursor position
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + text.length, start + text.length);
+      }, 0);
+    } else {
+      setEquationLaTeX(prev => prev + text);
+    }
+  };
+
+  const handleConfirmEquation = () => {
+    if (!editorRef.current) return;
+    
+    const renderedHtml = katex.renderToString(equationLaTeX, {
+      throwOnError: false,
+      displayMode: equationIsDisplayMode,
+      output: 'html'
+    });
+
+    if (editingEquationNode) {
+      editingEquationNode.innerHTML = renderedHtml;
+      editingEquationNode.setAttribute('data-latex', equationLaTeX);
+      editingEquationNode.setAttribute('data-display', equationIsDisplayMode ? 'true' : 'false');
+      editingEquationNode.setAttribute('aria-label', `Equation: ${equationLaTeX}`);
+      
+      // Update display style
+      if (equationIsDisplayMode) {
+        editingEquationNode.style.display = 'block';
+        editingEquationNode.style.textAlign = 'center';
+        editingEquationNode.style.width = '100%';
+        editingEquationNode.style.margin = '1.5em 0';
+      } else {
+        editingEquationNode.style.display = 'inline-block';
+        editingEquationNode.style.textAlign = 'left';
+        editingEquationNode.style.width = 'auto';
+        editingEquationNode.style.margin = '0 4px';
+      }
+    } else {
+      editorRef.current.focus();
+      // Improved styles: atomic, selectable, and deletable like Word
+      const style = equationIsDisplayMode 
+        ? "display: block; text-align: center; width: 100%; margin: 1.5em 0; padding: 12px; background: rgba(43, 87, 154, 0.02); border-radius: 8px; cursor: pointer; transition: all 0.2s; user-select: all; outline: none; border: 1px solid transparent; position: relative;"
+        : "display: inline-block; padding: 4px 8px; background: rgba(43, 87, 154, 0.02); cursor: pointer; margin: 0 4px; vertical-align: middle; transition: all 0.2s; user-select: all; border-radius: 4px; outline: none; border: 1px solid transparent; position: relative;";
+      
+      const equationHtml = `<span class="equation-wrapper" data-latex="${equationLaTeX.replace(/"/g, '&quot;')}" data-display="${equationIsDisplayMode}" contenteditable="false" draggable="true" role="math" aria-label="Equation: ${equationLaTeX.replace(/"/g, '&quot;')}" style="${style}" tabindex="0" onmouseover="this.style.borderColor='rgba(43, 87, 154, 0.3)'; this.style.background='rgba(43, 87, 154, 0.05)'" onmouseout="if(document.activeElement !== this) { this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)' }" onfocus="this.style.borderColor='#2b579a'; this.style.background='rgba(43, 87, 154, 0.1)'; this.style.boxShadow='0 0 0 2px rgba(43, 87, 154, 0.2)'" onblur="this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)'; this.style.boxShadow='none'">${renderedHtml}</span>&nbsp;`;
+      document.execCommand('insertHTML', false, equationHtml);
+    }
+    
+    setIsEquationModalOpen(false);
+    setEditingEquationNode(null);
+  };
+
   const handleKeyClick = (key: string) => {
     if (!editorRef.current) return;
     
@@ -548,6 +650,13 @@ export default function App() {
     const handlePointerDown = (e: PointerEvent) => {
       const target = e.target as HTMLElement;
       
+      // Handle Equation Focusing (for deletion/keyboard)
+      const equationNode = target.closest('.equation-wrapper') as HTMLElement;
+      if (equationNode) {
+        (equationNode as HTMLElement).focus();
+        // Don't return yet, allow dragging logic below
+      }
+
       // Clear selection if clicking elsewhere in editor
       if (target === editor) {
         setSelectedImage(null);
@@ -570,15 +679,29 @@ export default function App() {
         }
       } 
       // Handle Dragging
-      else if (target.classList.contains('image-wrapper') || target.closest('.image-wrapper')) {
+      else if (target.closest('.image-wrapper') || target.closest('.equation-wrapper')) {
         isDragging = true;
-        currentElement = (target.classList.contains('image-wrapper') ? target : target.closest('.image-wrapper')) as HTMLElement;
+        currentElement = (target.closest('.image-wrapper') || target.closest('.equation-wrapper')) as HTMLElement;
         startX = e.clientX;
         startY = e.clientY;
-        setSelectedImage(currentElement);
-        // We use relative positioning for dragging within the editor
-        startLeft = currentElement.offsetLeft;
-        startTop = currentElement.offsetTop;
+        
+        if (currentElement.classList.contains('image-wrapper')) {
+          setSelectedImage(currentElement);
+        }
+        
+        // Ensure positioning
+        if (window.getComputedStyle(currentElement).position !== 'absolute') {
+          const rect = currentElement.getBoundingClientRect();
+          const parentRect = editor.getBoundingClientRect();
+          currentElement.style.position = 'absolute';
+          currentElement.style.left = `${rect.left - parentRect.left}px`;
+          currentElement.style.top = `${rect.top - parentRect.top}px`;
+          currentElement.style.margin = '0';
+        }
+        
+        startLeft = parseFloat(currentElement.style.left) || 0;
+        startTop = parseFloat(currentElement.style.top) || 0;
+        
         e.preventDefault();
         e.stopPropagation();
       } else {
@@ -612,12 +735,48 @@ export default function App() {
       currentElement = null;
     };
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // If an equation-wrapper is focused, handle deletion
+      if (document.activeElement?.classList.contains('equation-wrapper')) {
+        if (e.key === 'Backspace' || e.key === 'Delete') {
+          document.activeElement.remove();
+          e.preventDefault();
+        } else if (e.key === 'Enter') {
+          // Double click or Enter to edit
+          const node = document.activeElement as HTMLElement;
+          const latex = node.getAttribute('data-latex') || '';
+          const isDisplay = node.getAttribute('data-display') === 'true';
+          setEquationLaTeX(latex);
+          setEquationIsDisplayMode(isDisplay);
+          setEditingEquationNode(node);
+          setIsEquationModalOpen(true);
+          e.preventDefault();
+        }
+      }
+    };
+
+    const handleDoubleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const equationNode = target.closest('.equation-wrapper') as HTMLElement;
+      if (equationNode) {
+        const latex = equationNode.getAttribute('data-latex') || '';
+        const isDisplay = equationNode.getAttribute('data-display') === 'true';
+        setEquationLaTeX(latex);
+        setEquationIsDisplayMode(isDisplay);
+        setEditingEquationNode(equationNode);
+        setIsEquationModalOpen(true);
+      }
+    };
+
     editor.addEventListener('pointerdown', handlePointerDown);
+    editor.addEventListener('dblclick', handleDoubleClick as any);
+    editor.addEventListener('keydown', handleKeyDown);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
 
     return () => {
       editor.removeEventListener('pointerdown', handlePointerDown);
+      editor.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
@@ -675,6 +834,204 @@ export default function App() {
               isArabic={isArabic}
               onLanguageToggle={() => setIsArabic(!isArabic)}
             />
+          </div>
+        )}
+
+        {/* Equation Editor Modal */}
+        {isEquationModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[85vh] overflow-hidden border border-gray-200 animate-in zoom-in-95 duration-200 flex flex-col">
+              <div className="bg-[#2b579a] p-3 flex justify-between items-center text-white shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="bg-white/20 p-1 rounded">
+                    <span className="font-serif italic font-bold">∑</span>
+                  </div>
+                  <h3 className="font-semibold text-sm">Equation Editor (LaTeX)</h3>
+                </div>
+                <button 
+                  onClick={() => setIsEquationModalOpen(false)}
+                  className="hover:bg-white/20 p-1 rounded-full transition-colors"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+              </div>
+              
+              <div className="flex flex-1 flex-col overflow-hidden">
+                {/* Horizontal Equation Ribbon */}
+                <div className="bg-gray-50 border-b border-gray-200 overflow-x-auto shrink-0 flex items-start gap-4 p-3 shadow-inner scrollbar-hide">
+                  <div className="flex gap-4 min-w-max px-2">
+                    {/* Structures Group */}
+                    <div className="flex flex-col gap-2 border-r border-gray-300 pr-4">
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Structures</span>
+                      <div className="flex gap-1">
+                        {[
+                          { label: 'Fraction', cmd: '\\frac{\\Box}{\\Box}', icon: '\\frac{\\Box}{\\Box}' },
+                          { label: 'Power', cmd: '\\Box^{\\Box}', icon: '\\Box^{\\Box}' },
+                          { label: 'Derivative', cmd: '\\frac{d\\Box}{d\\Box}', icon: '\\frac{d}{d}' },
+                          { label: 'Radical', cmd: '\\sqrt{\\Box}', icon: '\\sqrt{\\Box}' },
+                          { label: 'Integral', cmd: '\\int_{\\Box}^{\\Box} \\Box d\\Box', icon: '\\int' },
+                          { label: 'Sum', cmd: '\\sum_{\\Box}^{\\Box} \\Box', icon: '\\sum' },
+                          { label: 'Product', cmd: '\\prod_{\\Box}^{\\Box} \\Box', icon: '\\prod' },
+                          { label: 'Limit', cmd: '\\lim_{\\Box \\to \\Box} \\Box', icon: '\\lim' },
+                          { label: 'Matrix', cmd: '\\begin{pmatrix} \\Box & \\Box \\\\ \\Box & \\Box \\end{pmatrix}', icon: '\\small{\\pmatrix{\\cdot & \\cdot}}' },
+                        ].map(item => (
+                          <Button 
+                            key={item.label} 
+                            variant="ghost" 
+                            className="h-12 w-12 p-0 flex flex-col bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all shadow-sm"
+                            onClick={() => insertAtCursor(item.cmd)}
+                            title={item.label}
+                          >
+                            <span className="text-[12px] h-2/3 flex items-center" dangerouslySetInnerHTML={{ __html: katex.renderToString(item.icon, { throwOnError: false, output: 'html' }) }} />
+                            <span className="text-[8px] opacity-60 h-1/3 leading-none">{item.label}</span>
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Basic Symbols Group */}
+                    <div className="flex flex-col gap-2 border-r border-gray-300 pr-4">
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Symbols</span>
+                      <div className="grid grid-cols-4 gap-1">
+                        {['\\pm', '\\neq', '\\approx', '\\cdot', '\\div', '\\times', '\\leq', '\\geq'].map(op => (
+                          <Button key={op} variant="ghost" className="h-6 w-8 p-0 bg-white border border-gray-100 hover:bg-blue-50" onClick={() => insertAtCursor(' ' + op)}>
+                             <span dangerouslySetInnerHTML={{ __html: katex.renderToString(op, { output: 'html' }) }} />
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Greek Group */}
+                    <div className="flex flex-col gap-2 border-r border-gray-300 pr-4">
+                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Greek</span>
+                      <div className="grid grid-cols-5 gap-1">
+                        {['\\alpha', '\\beta', '\\pi', '\\lambda', '\\sigma', '\\theta', '\\delta', '\\mu', '\\omega', '\\gamma'].map(sym => (
+                          <Button key={sym} variant="ghost" className="h-6 w-6 p-0 bg-white border border-gray-100 hover:bg-blue-50" onClick={() => insertAtCursor(' ' + sym)}>
+                             <span dangerouslySetInnerHTML={{ __html: katex.renderToString(sym, { output: 'html' }) }} />
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Functions Group */}
+                    <div className="flex flex-col gap-2">
+                       <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Functions</span>
+                       <div className="grid grid-cols-3 gap-1">
+                         {['\\sin', '\\cos', '\\tan', '\\log', '\\ln', '\\lim'].map(func => (
+                           <Button key={func} variant="ghost" className="h-6 px-2 text-[10px] bg-white border border-gray-100" onClick={() => insertAtCursor(func + '(x)')}>{func.replace('\\','')}</Button>
+                         ))}
+                       </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Main Workspace Area */}
+                <div className="flex flex-1 overflow-hidden">
+                  {/* Left Column: Editor & Formulas */}
+                  <div className="w-1/2 flex flex-col border-r border-gray-200">
+                    <div className="flex-1 p-4 flex flex-col">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">LaTeX Editor</label>
+                        <Button variant="ghost" size="sm" className="h-5 text-[10px] text-gray-400 hover:text-red-500" onClick={() => setEquationLaTeX('')}>Clear All</Button>
+                      </div>
+                      <textarea 
+                        id="latex-editor"
+                        className="flex-1 w-full p-4 bg-white border border-gray-200 rounded-lg font-mono text-base focus:ring-2 focus:ring-[#2b579a] focus:border-transparent outline-none transition-all placeholder:text-gray-300 shadow-inner resize-none"
+                        value={equationLaTeX}
+                        onChange={(e) => setEquationLaTeX(e.target.value)}
+                        placeholder="Type LaTeX here..."
+                        autoFocus
+                      />
+                    </div>
+                    
+                    {/* Common Formulas Quick List */}
+                    <div className="p-4 bg-gray-50 border-t border-gray-200">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Preset Formulas</label>
+                      <div className="grid grid-cols-1 gap-2">
+                        {[
+                          { label: 'Quadratic Formula', cmd: 'x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}' },
+                          { label: 'Pythagorean Theorem', cmd: 'a^2 + b^2 = c^2' },
+                          { label: 'Euler\'s Identity', cmd: 'e^{i\\pi} + 1 = 0' }
+                        ].map(formula => (
+                          <Button 
+                            key={formula.label} 
+                            variant="outline" 
+                            className="bg-white justify-start h-8 text-[11px] px-3 font-medium text-gray-700 hover:text-[#2b579a] hover:bg-blue-50 border-gray-200"
+                            onClick={() => setEquationLaTeX(formula.cmd)}
+                          >
+                            {formula.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Preview Area */}
+                  <div className="w-1/2 flex flex-col bg-gray-100 p-4">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 block">Live Preview</label>
+                    <div className="flex-1 bg-white border border-gray-200 rounded-lg flex items-center justify-center p-8 overflow-auto shadow-sm relative">
+                       <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.4))] pointer-events-none" />
+                       <div 
+                         className="text-4xl text-[#2b579a] select-all transition-all duration-300"
+                         dangerouslySetInnerHTML={{ 
+                           __html: katex.renderToString(equationLaTeX || '\\text{Insert Symbols}', {
+                             throwOnError: false,
+                             displayMode: equationIsDisplayMode,
+                             output: 'html'
+                           }) 
+                         }} 
+                       />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+
+              <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center shrink-0">
+                <div className="text-[10px] text-gray-400 max-w-[60%]">
+                  Tip: Use backslash (\) for commands. Symbols added from the sidebar will appear at your cursor.
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex bg-gray-200 rounded-lg p-1">
+                    <button 
+                      className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${!equationIsDisplayMode ? 'bg-white text-[#2b579a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                      onClick={() => setEquationIsDisplayMode(false)}
+                    >Inline</button>
+                    <button 
+                      className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${equationIsDisplayMode ? 'bg-white text-[#2b579a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                      onClick={() => setEquationIsDisplayMode(true)}
+                    >Display (Centered)</button>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => setIsEquationModalOpen(false)}
+                      className="text-gray-600 font-medium"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleConfirmEquation}
+                      className="bg-[#2b579a] hover:bg-[#1e3a63] text-white px-10 font-semibold shadow-lg active:scale-95 transition-all text-sm h-10"
+                    >
+                      {editingEquationNode ? 'Save Changes' : 'Insert into Document'}
+                    </Button>
+                  </div>
+                  {editingEquationNode && (
+                    <Button 
+                      variant="outline" 
+                      className="text-red-500 border-red-200 hover:bg-red-50 ml-4"
+                      onClick={() => {
+                        editingEquationNode.remove();
+                        setIsEquationModalOpen(false);
+                      }}
+                    >
+                      Delete Equation
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

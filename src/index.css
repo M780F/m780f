@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import url('https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -125,6 +126,33 @@
   html {
     @apply font-sans;
     }
+}
+
+/* KaTeX fix: ensure MathML is hidden and fonts are crisp */
+.katex-mathml {
+  display: none !important;
+}
+
+.katex {
+  font-size: 1.1em;
+  text-indent: 0;
+  text-rendering: auto;
+}
+
+.equation-wrapper {
+  vertical-align: middle;
+  line-height: normal;
+  display: inline-block;
+}
+
+.equation-wrapper[data-display="true"] {
+  display: block;
+}
+
+/* Ensure fractions and powers are visible by preventing overflow clipping */
+.katex-display {
+  overflow-x: visible;
+  overflow-y: visible;
 }
 
 /* Editor Heading Styles */

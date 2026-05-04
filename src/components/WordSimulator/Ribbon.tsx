@@ -87,9 +87,9 @@ export const Ribbon: React.FC<RibbonProps> = ({
               <span className="font-medium">Document1 - Word</span>
             </div>
             <div className="flex items-center gap-3 opacity-80">
-              <Save size={12} className="cursor-pointer hover:opacity-100" />
-              <Undo size={12} className="cursor-pointer hover:opacity-100" />
-              <Redo size={12} className="cursor-pointer hover:opacity-100" />
+              <Save size={12} className="cursor-pointer hover:opacity-100" onMouseDown={(e) => handleFormatClick(e, 'save')} />
+              <Undo size={12} className="cursor-pointer hover:opacity-100" onMouseDown={(e) => handleFormatClick(e, 'undo')} />
+              <Redo size={12} className="cursor-pointer hover:opacity-100" onMouseDown={(e) => handleFormatClick(e, 'redo')} />
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -292,16 +292,19 @@ export const Ribbon: React.FC<RibbonProps> = ({
                 </div>
 
                 {/* Styles Group */}
-                <div className="flex flex-col items-center gap-1 px-2 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200 min-w-[100px]">
+                <div className="flex flex-col items-center gap-1 px-2 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200 min-w-[110px]">
                   <Select value={activeStyles.blockType} onValueChange={(v) => onFormat('formatBlock', v)}>
-                    <SelectTrigger className={`h-8 w-[90px] text-[11px] bg-white border-gray-300 font-semibold ${activeStyles.blockType !== 'p' ? 'text-[#2b579a] border-blue-300 bg-blue-50' : 'text-gray-800'}`}>
+                    <SelectTrigger className={`h-8 w-[100px] text-[11px] bg-white border-gray-300 font-semibold ${activeStyles.blockType !== 'p' ? 'text-[#2b579a] border-blue-300 bg-blue-50' : 'text-gray-800'}`}>
                       <SelectValue placeholder="Styles" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="p">Normal</SelectItem>
-                      <SelectItem value="h1">Heading 1</SelectItem>
-                      <SelectItem value="h2">Heading 2</SelectItem>
-                      <SelectItem value="h3">Heading 3</SelectItem>
+                      <SelectItem value="p" className="font-normal">Normal</SelectItem>
+                      <SelectItem value="h1" className="font-bold text-lg">Heading 1</SelectItem>
+                      <SelectItem value="h2" className="font-bold text-base">Heading 2</SelectItem>
+                      <SelectItem value="h3" className="font-bold text-sm">Heading 3</SelectItem>
+                      <SelectItem value="h4" className="font-semibold text-sm">Heading 4</SelectItem>
+                      <SelectItem value="h5" className="font-semibold text-xs">Heading 5</SelectItem>
+                      <SelectItem value="h6" className="font-semibold text-[10px]">Heading 6</SelectItem>
                     </SelectContent>
                   </Select>
                   <span className="text-[8px] text-[#2b579a] uppercase font-bold tracking-tighter">Styles</span>
@@ -324,6 +327,10 @@ export const Ribbon: React.FC<RibbonProps> = ({
                     <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'insertFile')}>
                       <Paperclip size={18} className="text-[#2b579a]" />
                       <span className="text-[9px] sm:text-[11px]">Files</span>
+                    </Button>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'insertEquation')}>
+                      <div className="flex items-center justify-center font-serif italic font-bold text-lg text-[#2b579a] h-[18px]">∑</div>
+                      <span className="text-[9px] sm:text-[11px]">Equation</span>
                     </Button>
                   </div>
                   <span className="text-[8px] sm:text-[10px] text-[#2b579a] uppercase font-bold tracking-tighter">Illustrations</span>
