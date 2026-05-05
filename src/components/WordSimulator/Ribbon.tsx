@@ -4,7 +4,8 @@ import {
   Type, List, ListOrdered, Image as ImageIcon, Table as TableIcon,
   Keyboard, Save, Undo, Redo, Search, Printer, FileText, ChevronDown, Palette,
   Paperclip, Square, Circle, Layout, Layers, Grid, Frame, Trash2, Rows,
-  Subscript, Superscript, FileDown
+  Subscript, Superscript, FileDown, ArrowLeft, Home as HomeIcon, FilePlus, FolderOpen,
+  Info, Share2, LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -14,29 +15,31 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
+
+interface ActiveStyles {
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  subscript: boolean;
+  superscript: boolean;
+  list: boolean;
+  orderedList: boolean;
+  align: string;
+  fontSize: string;
+  fontName: string;
+  blockType: string;
+  color: string;
+  lineHeight: string;
+}
 
 interface RibbonProps {
-  onFormat: (command: string, value?: string) => void;
+  onFormat: (command: string, value?: any) => void;
   onToggleKeyboard: () => void;
   isCollapsed?: boolean;
-  onToggleCollapse?: () => void;
+  onToggleCollapse: () => void;
   hasSelectedImage?: boolean;
-  activeStyles?: {
-    bold: boolean;
-    italic: boolean;
-    underline: boolean;
-    subscript: boolean;
-    superscript: boolean;
-    list: boolean;
-    orderedList: boolean;
-    align: string;
-    fontSize: string;
-    fontName: string;
-    blockType: string;
-    color: string;
-    lineHeight: string;
-  };
+  activeStyles: ActiveStyles;
 }
 
 export const Ribbon: React.FC<RibbonProps> = ({ 
@@ -45,28 +48,15 @@ export const Ribbon: React.FC<RibbonProps> = ({
   isCollapsed = false, 
   onToggleCollapse,
   hasSelectedImage = false,
-  activeStyles = {
-    bold: false,
-    italic: false,
-    underline: false,
-    subscript: false,
-    superscript: false,
-    list: false,
-    orderedList: false,
-    align: 'left',
-    fontSize: '3',
-    fontName: 'Arial',
-    blockType: 'p',
-    color: '#000000',
-    lineHeight: '1.2'
-  }
+  activeStyles
 }) => {
   const [activeTab, setActiveTab] = React.useState('home');
+  const [showBackstage, setShowBackstage] = React.useState(false);
 
   React.useEffect(() => {
     if (hasSelectedImage) {
       setActiveTab('picture-format');
-    } else if (activeTab === 'picture-format') {
+    } else if (activeTab === 'picture-format' && !hasSelectedImage) {
       setActiveTab('home');
     }
   }, [hasSelectedImage]);
@@ -74,22 +64,224 @@ export const Ribbon: React.FC<RibbonProps> = ({
   const handleFormatClick = (e: React.MouseEvent, command: string, value?: string) => {
     e.preventDefault();
     onFormat(command, value);
+    if (command === 'new' || command === 'open') {
+      setShowBackstage(false);
+      setActiveTab('home');
+    }
+  };
+
+  const handleBackstageToggle = (show: boolean) => {
+    setShowBackstage(show);
+    // When showing backstage, set a class on body to prevent scroll if needed
+    if (show) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+  };
+
+  const handleTabClick = (tab: string) => {
+    if (tab === 'file') {
+      handleBackstageToggle(true);
+    } else {
+      setActiveTab(tab);
+    }
   };
 
   return (
     <div className="bg-white border-b border-gray-200 shadow-sm z-10 shrink-0 w-full">
+      {/* Backstage View Overlay */}
+      {showBackstage && (
+        <div className="fixed inset-0 z-[1000] bg-white flex animate-in fade-in zoom-in-95 duration-300 origin-top-left">
+          {/* Backstage Sidebar */}
+          <div className="w-16 sm:w-64 bg-[#2b579a] text-white flex flex-col pt-4 overflow-y-auto shrink-0 shadow-2xl">
+            <button 
+              onClick={() => handleBackstageToggle(false)}
+              className="flex items-center gap-3 px-4 py-4 hover:bg-white/10 transition-colors mb-4 group"
+            >
+              <div className="w-8 h-8 rounded-full border border-white/50 flex items-center justify-center group-hover:bg-white group-hover:text-[#2b579a] transition-all">
+                <ArrowLeft size={20} />
+              </div>
+              <span className="hidden sm:inline font-bold">Back</span>
+            </button>
+
+            <nav className="flex flex-col gap-1 px-1 sm:px-0">
+              <button className="flex items-center gap-4 px-4 py-3 bg-white/10 border-l-4 border-white font-semibold">
+                <HomeIcon size={20} />
+                <span className="hidden sm:inline">Home</span>
+              </button>
+              <button 
+                onClick={(e) => handleFormatClick(e as any, 'new')}
+                className="flex items-center gap-4 px-4 py-3 hover:bg-white/10 transition-colors"
+              >
+                <FilePlus size={20} />
+                <span className="hidden sm:inline">New</span>
+              </button>
+              <button 
+                onClick={(e) => handleFormatClick(e as any, 'openBrowser')}
+                className="flex items-center gap-4 px-4 py-3 hover:bg-white/10 transition-colors"
+              >
+                <FolderOpen size={20} />
+                <span className="hidden sm:inline">Open</span>
+              </button>
+              <button 
+                onClick={(e) => handleFormatClick(e as any, 'saveDoc')}
+                className="flex items-center gap-4 px-4 py-3 hover:bg-white/10 transition-colors"
+              >
+                <Save size={20} />
+                <span className="hidden sm:inline">Save</span>
+              </button>
+              <button 
+                 onClick={(e) => handleFormatClick(e as any, 'exportPDF')}
+                 className="flex items-center gap-4 px-4 py-3 hover:bg-white/10 transition-colors"
+              >
+                <FileDown size={20} />
+                <span className="hidden sm:inline">Export PDF</span>
+              </button>
+              
+              <div className="h-[1px] bg-white/20 my-2 mx-4 hidden sm:block"></div>
+              
+              <button className="flex items-center gap-4 px-4 py-3 hover:bg-white/10 transition-colors opacity-60 cursor-not-allowed">
+                <Info size={20} />
+                <span className="hidden sm:inline">Account</span>
+              </button>
+              <button className="flex items-center gap-4 px-4 py-3 hover:bg-white/10 transition-colors opacity-60 cursor-not-allowed">
+                <Share2 size={20} />
+                <span className="hidden sm:inline">Feedback</span>
+              </button>
+            </nav>
+          </div>
+
+          {/* Backstage Main Content */}
+          <div className="flex-1 bg-[#f3f2f1] overflow-y-auto p-4 sm:p-12">
+            <div className="max-w-5xl mx-auto">
+              <header className="mb-12">
+                <h1 className="text-3xl font-light text-gray-800 mb-2">Good morning, Mustafa</h1>
+                <p className="text-gray-500">Welcome to Word Simulator. Create or resume your work.</p>
+              </header>
+
+              <section className="mb-12">
+                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">New</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                  <div 
+                    onClick={(e) => handleFormatClick(e as any, 'new')}
+                    className="group cursor-pointer"
+                  >
+                    <div className="aspect-[3/4] bg-white border border-gray-300 rounded shadow-sm hover:shadow-md hover:border-[#2b579a] transition-all flex flex-col p-3 mb-2 overflow-hidden relative">
+                      <div className="w-full h-full border border-gray-100 flex flex-col gap-1 p-1">
+                        <div className="w-1/2 h-0.5 bg-gray-100" />
+                        <div className="w-full h-0.5 bg-gray-100" />
+                        <div className="w-3/4 h-0.5 bg-gray-100" />
+                        <div className="mt-2 w-full h-0.5 bg-gray-100" />
+                        <div className="w-full h-0.5 bg-gray-100" />
+                      </div>
+                      <div className="absolute inset-0 bg-[#2b579a]/5 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                         <div className="bg-[#2b579a] text-white text-[10px] px-2 py-1 rounded font-bold">New</div>
+                      </div>
+                    </div>
+                    <p className="text-xs font-semibold text-center text-gray-700">Blank document</p>
+                  </div>
+                  
+                  <div className="group opacity-50 cursor-not-allowed">
+                    <div className="aspect-[3/4] bg-white border border-gray-300 rounded shadow-sm flex flex-col p-3 overflow-hidden">
+                       <div className="w-full h-2 bg-blue-100 mb-2" />
+                       <div className="w-2/3 h-1 bg-gray-100 mb-1" />
+                       <div className="w-full h-1 bg-gray-100 mb-1" />
+                       <div className="w-5/6 h-1 bg-gray-100" />
+                    </div>
+                    <p className="text-xs font-semibold text-center text-gray-700 mt-2">Welcome to Word</p>
+                  </div>
+
+                  <div className="group opacity-50 cursor-not-allowed">
+                    <div className="aspect-[3/4] bg-white border border-gray-300 rounded shadow-sm flex flex-col p-3 overflow-hidden">
+                       <div className="w-8 h-8 rounded-full bg-blue-50 mb-3" />
+                       <div className="w-full h-1 bg-blue-100 mb-2" />
+                       <div className="w-full h-1 bg-gray-100 mb-1" />
+                       <div className="w-full h-1 bg-gray-100 mb-1" />
+                       <div className="w-full h-1 bg-gray-100 mb-1" />
+                    </div>
+                    <p className="text-xs font-semibold text-center text-gray-700 mt-2">Resume template</p>
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <h2 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6">Recent</h2>
+                <div className="bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm">
+                  <div className="p-4 hover:bg-gray-50 flex items-center justify-between border-b border-gray-100 group cursor-pointer" onClick={() => setShowBackstage(false)}>
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded bg-blue-50 flex items-center justify-center text-[#2b579a]">
+                        <FileText size={20} />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm text-gray-800">Document1</p>
+                        <p className="text-xs text-gray-500">Modified 2 minutes ago</p>
+                      </div>
+                    </div>
+                    <div className="px-2 py-1 rounded border border-gray-200 text-[10px] font-bold text-gray-400 group-hover:border-[#2b579a] group-hover:text-[#2b579a]">OPEN</div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Bar - Hidden on small mobile or landscape height or when collapsed */}
       {!isCollapsed && (
-        <div className="hidden sm:flex h-7 items-center justify-between px-4 bg-[#2b579a] text-white text-[11px]">
+        <div className="hidden sm:flex h-9 items-center justify-between px-4 bg-[#2b579a] text-white text-[11px] border-b border-white/10">
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <FileText size={12} />
-              <span className="font-medium">Document1 - Word</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-white/15 px-2.5 py-1 rounded-sm backdrop-blur-sm border border-white/10">
+                <div className="flex items-center gap-1">
+                  <span className="text-orange-400 font-black text-[10px]">UoM</span>
+                  <div className="w-[1px] h-3 bg-white/20 mx-0.5" />
+                  <span className="text-blue-300 font-black text-[10px]">CPME</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <FileText size={12} className="text-blue-200" />
+                <span className="font-bold tracking-tight">Document1 - Word Simulator</span>
+              </div>
             </div>
-            <div className="flex items-center gap-3 opacity-80">
-              <Save size={12} className="cursor-pointer hover:opacity-100" onMouseDown={(e) => handleFormatClick(e, 'save')} />
-              <Undo size={12} className="cursor-pointer hover:opacity-100" onMouseDown={(e) => handleFormatClick(e, 'undo')} />
-              <Redo size={12} className="cursor-pointer hover:opacity-100" onMouseDown={(e) => handleFormatClick(e, 'redo')} />
+            <div className="flex items-center gap-1 opacity-80">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 text-white hover:bg-white/20 p-0" 
+                onMouseDown={(e) => handleFormatClick(e as any, 'saveDoc')} 
+                title="Save (Ctrl+S)"
+              >
+                <Save size={12} />
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="h-6 px-2 text-white hover:bg-white/20 text-[10px] font-bold gap-1" 
+                onMouseDown={(e) => handleFormatClick(e as any, 'exportPDF')} 
+                title="Export to PDF"
+              >
+                <FileDown size={12} />
+                <span>PDF</span>
+              </Button>
+              <div className="w-[1px] h-3 bg-white/20 mx-1"></div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 text-white hover:bg-white/20 p-0" 
+                onMouseDown={(e) => handleFormatClick(e as any, 'undo')} 
+                title="Undo (Ctrl+Z)"
+              >
+                <Undo size={12} />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-6 w-6 text-white hover:bg-white/20 p-0" 
+                onMouseDown={(e) => handleFormatClick(e as any, 'redo')} 
+                title="Redo (Ctrl+Y)"
+              >
+                <Redo size={12} />
+              </Button>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -107,11 +299,13 @@ export const Ribbon: React.FC<RibbonProps> = ({
             {['file', 'home', 'insert', 'layout', 'view'].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => handleTabClick(tab)}
                 className={`px-4 sm:px-6 text-[11px] sm:text-sm h-full font-medium transition-colors capitalize ${
-                  activeTab === tab 
-                    ? tab === 'file' ? 'bg-[#2b579a] text-white' : 'bg-[#f3f2f1] text-[#2b579a] border-t border-x border-gray-200 rounded-t-sm'
-                    : 'text-gray-600 hover:bg-gray-50'
+                  activeTab === tab && !showBackstage
+                    ? 'bg-[#f3f2f1] text-[#2b579a] border-t border-x border-gray-200 rounded-t-sm'
+                    : tab === 'file'
+                      ? 'bg-[#2b579a] text-white font-bold'
+                      : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 {tab}
@@ -146,37 +340,19 @@ export const Ribbon: React.FC<RibbonProps> = ({
           </div>
         </div>
 
-        {!isCollapsed && (
+        {!isCollapsed && activeTab !== 'file' && (
           <div className="w-full bg-[#f3f2f1]">
-            {activeTab === 'file' && (
-              <div className="m-0 p-0 bg-[#2b579a] text-white flex flex-col h-[80px] sm:h-[100px]">
-                <div className="flex h-full">
-                  <div className="w-32 sm:w-48 bg-[#1e3a63] p-1 sm:p-2 flex flex-col gap-0.5">
-                    <Button variant="ghost" className="justify-start text-white hover:bg-[#2b579a] h-7 sm:h-8 text-[10px] sm:text-xs">New</Button>
-                    <Button variant="ghost" className="justify-start text-white hover:bg-[#2b579a] h-7 sm:h-8 text-[10px] sm:text-xs">Open</Button>
-                    <Button variant="ghost" className="justify-start text-white hover:bg-[#2b579a] h-7 sm:h-8 text-[10px] sm:text-xs">Save</Button>
-                    <Button 
-                      variant="ghost" 
-                      className="justify-start text-white hover:bg-[#e26210] h-7 sm:h-8 text-[10px] sm:text-xs bg-[#d83b01] mt-auto font-bold"
-                      onMouseDown={(e) => handleFormatClick(e, 'exportPDF')}
-                    >
-                      <FileDown size={14} className="mr-2" />
-                      Export to PDF
-                    </Button>
-                  </div>
-                  <div className="flex-1 p-2 sm:p-4 flex flex-col justify-center">
-                    <h3 className="text-sm sm:text-lg font-light mb-1 sm:mb-2">Good morning</h3>
-                    <div className="flex gap-2 sm:gap-4">
-                      <div className="w-14 h-18 sm:w-20 sm:h-24 bg-white border border-gray-400 flex items-center justify-center text-gray-400 text-[8px] sm:text-[10px]">Blank</div>
-                      <div className="w-14 h-18 sm:w-20 sm:h-24 bg-white border border-gray-400 flex items-center justify-center text-gray-400 text-[8px] sm:text-[10px]">Resume</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {activeTab === 'home' && (
               <div className="m-0 p-1 sm:p-2 flex items-center justify-start gap-2 overflow-x-auto h-[105px] sm:h-auto border-b border-gray-300 w-full">
+                {/* Tools Group (Undo/Redo for mobile/compact) */}
+                <div className="sm:hidden flex flex-col items-center gap-1 px-2 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200 min-w-[70px]">
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-700 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'undo')}><Undo size={16} /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-700 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'redo')}><Redo size={16} /></Button>
+                  </div>
+                  <span className="text-[8px] text-[#2b579a] uppercase font-bold tracking-tighter">Tools</span>
+                </div>
+
                 {/* Clipboard Group */}
                 <div className="flex flex-col items-center gap-1 px-2 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200 min-w-[80px]">
                   <div className="flex gap-2">
@@ -335,6 +511,42 @@ export const Ribbon: React.FC<RibbonProps> = ({
                   </div>
                   <span className="text-[8px] sm:text-[10px] text-[#2b579a] uppercase font-bold tracking-tighter">Illustrations</span>
                 </div>
+
+                <div className="flex flex-col items-center gap-1 px-3 border-r border-gray-300 shrink-0 bg-white shadow-sm rounded-md py-1.5 border border-gray-200">
+                  <div className="flex gap-2">
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'toggleHeader')}>
+                      <FileText size={18} className="text-[#2b579a]" />
+                      <span className="text-[9px] sm:text-[11px]">Header</span>
+                    </Button>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'toggleFooter')}>
+                      <div className="relative">
+                        <FileText size={18} className="text-[#2b579a]" />
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#2b579a]"></div>
+                      </div>
+                      <span className="text-[9px] sm:text-[11px]">Footer</span>
+                    </Button>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'insertPageNumber')}>
+                      <div className="flex items-center justify-center font-bold text-[#2b579a] h-[18px] text-xs">#</div>
+                      <span className="text-[9px] sm:text-[11px]">Page #</span>
+                    </Button>
+                    <div className="w-[1px] h-8 sm:h-10 bg-gray-200 mx-1"></div>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'addPage')}>
+                      <div className="relative">
+                        <FileText size={18} className="text-green-600" />
+                        <div className="absolute -top-1 -right-1 bg-green-600 text-white rounded-full w-3 h-3 flex items-center justify-center text-[8px]">+</div>
+                      </div>
+                      <span className="text-[9px] sm:text-[11px]">Add Page</span>
+                    </Button>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'deletePage')}>
+                      <div className="relative">
+                        <FileText size={18} className="text-red-500" />
+                        <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-3 h-3 flex items-center justify-center text-[8px]">-</div>
+                      </div>
+                      <span className="text-[9px] sm:text-[11px]">Del Page</span>
+                    </Button>
+                  </div>
+                  <span className="text-[8px] sm:text-[10px] text-[#2b579a] uppercase font-bold tracking-tighter">Header & Footer</span>
+                </div>
               </div>
             )}
 
@@ -478,3 +690,5 @@ export const Ribbon: React.FC<RibbonProps> = ({
     </div>
   );
 };
+
+export default Ribbon;

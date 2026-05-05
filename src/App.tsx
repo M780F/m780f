@@ -5,11 +5,12 @@ import { Ribbon } from './components/WordSimulator/Ribbon';
 import { Editor } from './components/WordSimulator/Editor';
 import { StatusBar } from './components/WordSimulator/StatusBar';
 import { VirtualKeyboard } from './components/WordSimulator/VirtualKeyboard';
+import { IntroScreen } from './components/WordSimulator/IntroScreen';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 
 export default function App() {
-  const [content, setContent] = useState('');
+  const [showIntro, setShowIntro] = useState(true);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [showKeyboard, setShowKeyboard] = useState(true);
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
@@ -19,6 +20,12 @@ export default function App() {
   const [equationLaTeX, setEquationLaTeX] = useState('\\alpha^2 + \\beta^2 = \\gamma^2');
   const [equationIsDisplayMode, setEquationIsDisplayMode] = useState(false);
   const [editingEquationNode, setEditingEquationNode] = useState<HTMLElement | null>(null);
+  const [pages, setPages] = useState<string[]>(['']);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [headerContent, setHeaderContent] = useState('');
+  const [footerContent, setFooterContent] = useState('');
+  const [showHeader, setShowHeader] = useState(false);
+  const [showFooter, setShowFooter] = useState(false);
   const [activeStyles, setActiveStyles] = useState<{
     bold: boolean;
     italic: boolean;
@@ -51,18 +58,20 @@ export default function App() {
 
   // Auto-save to local storage
   useEffect(() => {
-    const savedContent = localStorage.getItem('word-document-content');
-    if (savedContent && editorRef.current) {
-      editorRef.current.innerHTML = savedContent;
-      setContent(savedContent);
+    const savedPages = localStorage.getItem('word-document-pages');
+    if (savedPages) {
+      try {
+        const parsed = JSON.parse(savedPages);
+        if (Array.isArray(parsed)) setPages(parsed);
+      } catch (e) {
+        console.error('Failed to parse saved pages');
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (content) {
-      localStorage.setItem('word-document-content', content);
-    }
-  }, [content]);
+    localStorage.setItem('word-document-pages', JSON.stringify(pages));
+  }, [pages]);
 
   const updateActiveStyles = () => {
     if (typeof document === 'undefined') return;
@@ -144,6 +153,7 @@ export default function App() {
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const openDocInputRef = useRef<HTMLInputElement>(null);
 
   // Track selection to enable/disable toolbar buttons
   useEffect(() => {
@@ -157,12 +167,13 @@ export default function App() {
   // Auto-scroll to cursor when typing
   useEffect(() => {
     const scrollToCursor = () => {
-      if (showKeyboard && editorRef.current) {
+      const editorObj = editorRef.current as any;
+      if (showKeyboard && editorObj?.root) {
         const selection = window.getSelection();
         if (selection && selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
           const rect = range.getBoundingClientRect();
-          const workspace = editorRef.current.parentElement;
+          const workspace = editorObj.root.parentElement;
           
           if (workspace) {
             const workspaceRect = workspace.getBoundingClientRect();
@@ -176,17 +187,19 @@ export default function App() {
     };
 
     const observer = new MutationObserver(scrollToCursor);
-    if (editorRef.current) {
-      observer.observe(editorRef.current, { childList: true, characterData: true, subtree: true });
+    const editorObj = editorRef.current as any;
+    if (editorObj?.root) {
+      observer.observe(editorObj.root, { childList: true, characterData: true, subtree: true });
     }
     return () => observer.disconnect();
   }, [showKeyboard]);
 
   const handleFormat = (command: string, value?: string) => {
-    if (!editorRef.current) return;
+    const editorObj = editorRef.current as any;
+    if (!editorObj) return;
     
-    // Ensure editor is focused before executing command
-    editorRef.current.focus();
+    // Ensure active editor page is focused before executing command
+    editorObj.focus(currentPageIndex);
     
     // Use CSS styles instead of HTML tags (better for mobile/iPhone)
     document.execCommand('styleWithCSS', false, true as any);
@@ -240,7 +253,7 @@ export default function App() {
         const selection = window.getSelection();
         if (selection && selection.rangeCount > 0) {
           let node = selection.anchorNode as Node | null;
-          while (node && node !== editorRef.current) {
+          while (node && !editorObj.root?.contains(node)) {
             if (node.nodeName === 'OL') {
               (node as HTMLElement).style.listStyleType = value || 'decimal';
               break;
@@ -254,7 +267,7 @@ export default function App() {
       if (selection && selection.rangeCount > 0) {
         let node = selection.anchorNode as Node | null;
         // Move up to the closest block element or LI
-        while (node && node !== editorRef.current) {
+        while (node && !editorObj.root?.contains(node)) {
           if (node.nodeType === 1 && (['P', 'DIV', 'H1', 'H2', 'H3', 'LI'].includes((node as HTMLElement).tagName))) {
             (node as HTMLElement).style.lineHeight = value || '1.2';
             break;
@@ -289,28 +302,132 @@ export default function App() {
           applyModernFontSize('3');
         }
       }
-    } else if (command === 'exportPDF' || command === 'save') {
-      const element = editorRef.current;
+    } else if (command === 'exportPDF') {
+      const element = editorObj.root;
       if (!element) return;
       
+      const clone = element.cloneNode(true) as HTMLElement;
+      // Clean up UI elements from the clone
+      clone.style.paddingBottom = '0';
+      clone.style.gap = '0';
+      clone.style.margin = '0';
+      clone.style.background = 'white';
+      
+      const pagesInClone = clone.querySelectorAll('.pdf-page');
+      pagesInClone.forEach((p: any) => {
+        p.style.boxShadow = 'none';
+        p.style.border = 'none';
+        p.style.margin = '0';
+        p.style.width = '816px'; // Exact letter width
+        p.style.maxWidth = '816px';
+        p.style.padding = '1in'; // Standard Word margin for PDF
+        p.style.display = 'block';
+        
+        // Hide UI artifacts
+        const dashedBorders = p.querySelectorAll('.border-dashed');
+        dashedBorders.forEach((b: any) => b.style.border = 'none');
+      });
+
+      // Append temporarily to body but hide it, to ensure styles are computed correctly
+      clone.style.position = 'fixed';
+      clone.style.top = '-9999px';
+      clone.style.left = '-9999px';
+      document.body.appendChild(clone);
+
       const opt = {
-        margin:       [0.5, 0.5],
-        filename:     'Document1.pdf',
+        margin:       0,
+        filename:     'document.pdf',
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { 
           scale: 2,
           useCORS: true,
-          logging: false
+          logging: false,
+          scrollY: 0,
+          windowWidth: 816
         },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
       };
 
       // @ts-ignore
-      html2pdf().from(element).set(opt).save();
+      html2pdf().from(clone).set(opt).save().then(() => {
+        document.body.removeChild(clone);
+      });
+    } else if (command === 'new') {
+      if (confirm('Create a new blank document? All unsaved changes will be lost.')) {
+        setPages(['']);
+        setCurrentPageIndex(0);
+        setHeaderContent('');
+        setFooterContent('');
+        setShowHeader(false);
+        setShowFooter(false);
+      }
+    } else if (command === 'openBrowser') {
+      openDocInputRef.current?.click();
+    } else if (command === 'saveDoc') {
+      // Create a full HTML document blob
+      const content = pages.map((p, i) => `
+        <div class="page" data-page-index="${i}">
+          ${p}
+        </div>
+      `).join('');
+      
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Word Document</title>
+          <style>
+            body { font-family: Arial, sans-serif; }
+            .page { min-height: 1056px; width: 816px; margin: 20px auto; padding: 1in; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+          </style>
+        </head>
+        <body>
+          ${content}
+        </body>
+        </html>
+      `;
+      
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'document.html';
+      a.click();
+      URL.revokeObjectURL(url);
     } else if (command === 'undo') {
       document.execCommand('undo', false);
     } else if (command === 'redo') {
-      document.execCommand('redo', false);
+      try {
+        editorRef.current?.focus(currentPageIndex);
+        document.execCommand('redo', false);
+      } catch (err) {
+        console.warn('Redo failed:', err);
+      }
+    } else if (command === 'toggleHeader') {
+      setShowHeader(!showHeader);
+    } else if (command === 'toggleFooter') {
+      setShowFooter(!showFooter);
+    } else if (command === 'insertPageNumber') {
+      const pageNumHtml = `<span class="page-number-field" contenteditable="false" style="padding: 0 2px; color: #2b579a; font-weight: bold;">{page}</span>`;
+      document.execCommand('insertHTML', false, pageNumHtml);
+    } else if (command === 'addPage') {
+      setPages(prev => [...prev, '']);
+      setCurrentPageIndex(pages.length);
+      setTimeout(() => {
+        const newPage = document.querySelectorAll('.document-page')[pages.length] as HTMLElement;
+        if (newPage) newPage.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } else if (command === 'deletePage' && pages.length > 1) {
+      const newPages = [...pages];
+      newPages.splice(currentPageIndex, 1);
+      setPages(newPages);
+      setCurrentPageIndex(Math.max(0, currentPageIndex - 1));
+    } else if (command === 'nextPage') {
+      setCurrentPageIndex(prev => Math.min(pages.length - 1, prev + 1));
+    } else if (command === 'prevPage') {
+      setCurrentPageIndex(prev => Math.max(0, prev - 1));
     } else if (command.startsWith('image')) {
       handleImageFormat(command, value);
     } else {
@@ -318,9 +435,7 @@ export default function App() {
     }
     
     // Force editor focus and style refresh
-    if (editorRef.current) {
-      editorRef.current.focus();
-    }
+    editorObj.focus(currentPageIndex);
     updateActiveStyles();
   };
 
@@ -534,6 +649,35 @@ export default function App() {
     e.target.value = '';
   };
 
+  const handleOpenDoc = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const content = event.target?.result as string;
+        
+        // Try to extract content if it's an HTML we saved
+        if (content.includes('<div class="page"')) {
+           const parser = new DOMParser();
+           const doc = parser.parseFromString(content, 'text/html');
+           const pageNodes = doc.querySelectorAll('.page');
+           if (pageNodes.length > 0) {
+             const newPages = Array.from(pageNodes).map(n => n.innerHTML);
+             setPages(newPages);
+             setCurrentPageIndex(0);
+             return;
+           }
+        }
+        
+        // Fallback for simple text or unknown HTML
+        setPages([content]);
+        setCurrentPageIndex(0);
+      };
+      reader.readAsText(file);
+    }
+    e.target.value = '';
+  };
+
   const insertAtCursor = (text: string) => {
     const textarea = document.getElementById('latex-editor') as HTMLTextAreaElement;
     if (textarea) {
@@ -553,23 +697,55 @@ export default function App() {
         setEquationLaTeX(val.substring(0, start) + text + val.substring(end));
       }
 
-      // Update cursor position
+      // Update cursor position and select placeholder if exists
       setTimeout(() => {
         textarea.focus();
-        textarea.setSelectionRange(start + text.length, start + text.length);
+        const placeholderIdx = text.indexOf('\\square');
+        if (placeholderIdx !== -1) {
+          const newStart = start + placeholderIdx;
+          textarea.setSelectionRange(newStart, newStart + 7);
+        } else {
+          textarea.setSelectionRange(start + text.length, start + text.length);
+        }
       }, 0);
     } else {
       setEquationLaTeX(prev => prev + text);
     }
   };
 
+  const handleEditorTab = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Tab') {
+      const textarea = e.currentTarget;
+      const val = textarea.value;
+      const start = textarea.selectionStart;
+      
+      // Find the next \square after current selection
+      const nextIdx = val.indexOf('\\square', start);
+      if (nextIdx !== -1) {
+        e.preventDefault();
+        textarea.setSelectionRange(nextIdx, nextIdx + 7);
+      } else {
+        // Look from the beginning if not found after cursor
+        const firstIdx = val.indexOf('\\square');
+        if (firstIdx !== -1) {
+          e.preventDefault();
+          textarea.setSelectionRange(firstIdx, firstIdx + 7);
+        }
+      }
+    }
+  };
+
   const handleConfirmEquation = () => {
-    if (!editorRef.current) return;
+    const editorObj = editorRef.current as any;
+    if (!editorObj) return;
     
     const renderedHtml = katex.renderToString(equationLaTeX, {
       throwOnError: false,
       displayMode: equationIsDisplayMode,
-      output: 'html'
+      output: 'html',
+      errorColor: '#2b579a',
+      strict: false,
+      trust: true
     });
 
     if (editingEquationNode) {
@@ -591,7 +767,7 @@ export default function App() {
         editingEquationNode.style.margin = '0 4px';
       }
     } else {
-      editorRef.current.focus();
+      editorObj.focus(currentPageIndex);
       // Improved styles: atomic, selectable, and deletable like Word
       const style = equationIsDisplayMode 
         ? "display: block; text-align: center; width: 100%; margin: 1.5em 0; padding: 12px; background: rgba(43, 87, 154, 0.02); border-radius: 8px; cursor: pointer; transition: all 0.2s; user-select: all; outline: none; border: 1px solid transparent; position: relative;"
@@ -606,9 +782,10 @@ export default function App() {
   };
 
   const handleKeyClick = (key: string) => {
-    if (!editorRef.current) return;
+    const editorObj = editorRef.current as any;
+    if (!editorObj) return;
     
-    editorRef.current.focus();
+    editorObj.focus(currentPageIndex);
     const sel = window.getSelection();
     
     if (key === 'Backspace') {
@@ -635,7 +812,8 @@ export default function App() {
   };
 
   useEffect(() => {
-    const editor = editorRef.current;
+    const editorObj = editorRef.current as any;
+    const editor = editorObj?.root;
     if (!editor) return;
 
     let isResizing = false;
@@ -784,7 +962,10 @@ export default function App() {
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-screen bg-[#f3f2f1] overflow-hidden font-sans select-none">
+      <IntroScreen onStart={() => setShowIntro(false)} />
+      
+      {!showIntro && (
+        <div className="flex flex-col h-screen bg-[#f3f2f1] overflow-hidden font-sans select-none animate-in fade-in duration-700">
         <input 
           type="file" 
           ref={imageInputRef} 
@@ -800,7 +981,8 @@ export default function App() {
         />
         {/* Ribbon Header - Auto-collapses or can be manually toggled */}
         <div className={`transition-all duration-300 ease-in-out ${isRibbonCollapsed ? 'h-8 sm:h-9' : 'h-auto'}`}>
-          <Ribbon 
+          <input type="file" ref={openDocInputRef} style={{ display: 'none' }} accept=".html,.txt" onChange={handleOpenDoc} />
+      <Ribbon 
             onFormat={handleFormat} 
             onToggleKeyboard={() => setShowKeyboard(!showKeyboard)} 
             isCollapsed={isRibbonCollapsed}
@@ -819,9 +1001,21 @@ export default function App() {
         >
           <Editor 
             ref={editorRef} 
-            content={content} 
-            onChange={setContent} 
+            pages={pages}
+            currentPageIndex={currentPageIndex}
+            onChange={(newContent, index) => {
+              const newPages = [...pages];
+              newPages[index] = newContent;
+              setPages(newPages);
+            }} 
             isArabic={isArabic}
+            header={headerContent}
+            footer={footerContent}
+            onHeaderChange={setHeaderContent}
+            onFooterChange={setFooterContent}
+            showHeader={showHeader}
+            showFooter={showFooter}
+            onFocusPage={setCurrentPageIndex}
           />
         </div>
 
@@ -865,15 +1059,17 @@ export default function App() {
                       <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Structures</span>
                       <div className="flex gap-1">
                         {[
-                          { label: 'Fraction', cmd: '\\frac{\\Box}{\\Box}', icon: '\\frac{\\Box}{\\Box}' },
-                          { label: 'Power', cmd: '\\Box^{\\Box}', icon: '\\Box^{\\Box}' },
-                          { label: 'Derivative', cmd: '\\frac{d\\Box}{d\\Box}', icon: '\\frac{d}{d}' },
-                          { label: 'Radical', cmd: '\\sqrt{\\Box}', icon: '\\sqrt{\\Box}' },
-                          { label: 'Integral', cmd: '\\int_{\\Box}^{\\Box} \\Box d\\Box', icon: '\\int' },
-                          { label: 'Sum', cmd: '\\sum_{\\Box}^{\\Box} \\Box', icon: '\\sum' },
-                          { label: 'Product', cmd: '\\prod_{\\Box}^{\\Box} \\Box', icon: '\\prod' },
-                          { label: 'Limit', cmd: '\\lim_{\\Box \\to \\Box} \\Box', icon: '\\lim' },
-                          { label: 'Matrix', cmd: '\\begin{pmatrix} \\Box & \\Box \\\\ \\Box & \\Box \\end{pmatrix}', icon: '\\small{\\pmatrix{\\cdot & \\cdot}}' },
+                          { label: 'Fraction', cmd: '\\frac{\\square}{\\square}', icon: '\\frac{\\blacksquare}{\\square}' },
+                          { label: 'Power', cmd: '\\square^{\\square}', icon: '\\blacksquare^{n}' },
+                          { label: 'Derivative', cmd: '\\frac{d\\square}{d\\square}', icon: '\\frac{d}{dx}' },
+                          { label: 'Radical', cmd: '\\sqrt{\\square}', icon: '\\sqrt{\\blacksquare}' },
+                          { label: 'Integral', cmd: '\\int_{\\square}^{\\square} \\square d\\square', icon: '\\int' },
+                          { label: 'Sum', cmd: '\\sum_{\\square}^{\\square} \\square', icon: '\\sum' },
+                          { label: 'Product', cmd: '\\prod_{\\square}^{\\square} \\square', icon: '\\prod' },
+                          { label: 'Limit', cmd: '\\lim_{\\square \\to \\square} \\square', icon: '\\lim' },
+                          { label: 'Matrix', cmd: '\\begin{pmatrix} \\square & \\square \\\\ \\square & \\square \\end{pmatrix}', icon: '\\begin{pmatrix} \\cdot & \\cdot \\end{pmatrix}' },
+                          { label: 'Text', cmd: '\\text{\\square}', icon: '\\text{abc}' },
+                          { label: 'Box', cmd: '\\square', icon: '\\square' },
                         ].map(item => (
                           <Button 
                             key={item.label} 
@@ -882,7 +1078,7 @@ export default function App() {
                             onClick={() => insertAtCursor(item.cmd)}
                             title={item.label}
                           >
-                            <span className="text-[12px] h-2/3 flex items-center" dangerouslySetInnerHTML={{ __html: katex.renderToString(item.icon, { throwOnError: false, output: 'html' }) }} />
+                            <span className="text-[14px] h-2/3 flex items-center justify-center font-serif" dangerouslySetInnerHTML={{ __html: katex.renderToString(item.icon, { throwOnError: false, output: 'html', strict: false, trust: true, errorColor: '#2b579a' }) }} />
                             <span className="text-[8px] opacity-60 h-1/3 leading-none">{item.label}</span>
                           </Button>
                         ))}
@@ -895,7 +1091,7 @@ export default function App() {
                       <div className="grid grid-cols-4 gap-1">
                         {['\\pm', '\\neq', '\\approx', '\\cdot', '\\div', '\\times', '\\leq', '\\geq'].map(op => (
                           <Button key={op} variant="ghost" className="h-6 w-8 p-0 bg-white border border-gray-100 hover:bg-blue-50" onClick={() => insertAtCursor(' ' + op)}>
-                             <span dangerouslySetInnerHTML={{ __html: katex.renderToString(op, { output: 'html' }) }} />
+                             <span dangerouslySetInnerHTML={{ __html: katex.renderToString(op, { output: 'html', strict: false, trust: true }) }} />
                           </Button>
                         ))}
                       </div>
@@ -907,7 +1103,7 @@ export default function App() {
                       <div className="grid grid-cols-5 gap-1">
                         {['\\alpha', '\\beta', '\\pi', '\\lambda', '\\sigma', '\\theta', '\\delta', '\\mu', '\\omega', '\\gamma'].map(sym => (
                           <Button key={sym} variant="ghost" className="h-6 w-6 p-0 bg-white border border-gray-100 hover:bg-blue-50" onClick={() => insertAtCursor(' ' + sym)}>
-                             <span dangerouslySetInnerHTML={{ __html: katex.renderToString(sym, { output: 'html' }) }} />
+                             <span dangerouslySetInnerHTML={{ __html: katex.renderToString(sym, { output: 'html', strict: false, trust: true }) }} />
                           </Button>
                         ))}
                       </div>
@@ -939,6 +1135,7 @@ export default function App() {
                         className="flex-1 w-full p-4 bg-white border border-gray-200 rounded-lg font-mono text-base focus:ring-2 focus:ring-[#2b579a] focus:border-transparent outline-none transition-all placeholder:text-gray-300 shadow-inner resize-none"
                         value={equationLaTeX}
                         onChange={(e) => setEquationLaTeX(e.target.value)}
+                        onKeyDown={handleEditorTab}
                         placeholder="Type LaTeX here..."
                         autoFocus
                       />
@@ -977,7 +1174,10 @@ export default function App() {
                            __html: katex.renderToString(equationLaTeX || '\\text{Insert Symbols}', {
                              throwOnError: false,
                              displayMode: equationIsDisplayMode,
-                             output: 'html'
+                             output: 'html',
+                             errorColor: '#2b579a',
+                             strict: false,
+                             trust: true
                            }) 
                          }} 
                        />
@@ -1037,9 +1237,10 @@ export default function App() {
 
         {/* Status Bar - Hidden on very short screens (landscape mobile) */}
         <div className="hidden min-h-[400px]:block">
-          <StatusBar content={content} />
+          <StatusBar content={pages.join('')} />
         </div>
       </div>
+      )}
     </TooltipProvider>
   );
 }
