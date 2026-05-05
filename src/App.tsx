@@ -334,61 +334,65 @@ export default function App() {
       
       // Delay slightly to allow the UI to update and show the loading state
       setTimeout(async () => {
+        let cloneContainer: HTMLDivElement | null = null;
         try {
-          const clone = element.cloneNode(true) as HTMLElement;
-          // Clean up UI elements from the clone
-          clone.style.paddingBottom = '0';
-          clone.style.gap = '0';
-          clone.style.margin = '0';
-          clone.style.background = 'white';
-          
-          const pagesInClone = clone.querySelectorAll('.pdf-page');
-          pagesInClone.forEach((p: any) => {
-            p.style.boxShadow = 'none';
-            p.style.border = 'none';
-            p.style.margin = '0';
-            p.style.width = '816px'; // Exact letter width
-            p.style.maxWidth = '816px';
-            p.style.padding = '1in'; // Standard Word margin for PDF
-            p.style.display = 'block';
-            
-            // Hide UI artifacts
-            const dashedBorders = p.querySelectorAll('.border-dashed');
-            dashedBorders.forEach((b: any) => b.style.border = 'none');
-          });
+          // Create a clean container
+          cloneContainer = document.createElement('div');
+          cloneContainer.style.position = 'fixed';
+          cloneContainer.style.top = '-9999px';
+          cloneContainer.style.left = '-9999px';
+          cloneContainer.style.width = '816px';
+          cloneContainer.style.background = 'white';
+          document.body.appendChild(cloneContainer);
 
-          // Append temporarily to body but hide it, to ensure styles are computed correctly
-          clone.style.position = 'fixed';
-          clone.style.top = '-9999px';
-          clone.style.left = '-9999px';
-          document.body.appendChild(clone);
+          // Clone only the pages, not the entire UI
+          const pagesElements = element.querySelectorAll('.pdf-page');
+          pagesElements.forEach((pageEl) => {
+            const pageClone = pageEl.cloneNode(true) as HTMLElement;
+            pageClone.style.boxShadow = 'none';
+            pageClone.style.border = 'none';
+            pageClone.style.margin = '0';
+            pageClone.style.width = '816px';
+            pageClone.style.maxWidth = '816px';
+            pageClone.style.padding = '1in';
+            pageClone.style.display = 'block';
+            pageClone.style.pageBreakAfter = 'always';
+            
+            // Remove any dashed borders or UI helpers
+            const helpers = pageClone.querySelectorAll('.border-dashed, .cursor-pointer');
+            helpers.forEach((h: any) => h.style.border = 'none');
+            
+            cloneContainer?.appendChild(pageClone);
+          });
 
           const opt = {
             margin:       0,
             filename:     'document.pdf',
-            image:        { type: 'jpeg', quality: 0.98 },
+            image:        { type: 'jpeg', quality: 0.95 },
             html2canvas:  { 
-              scale: 2,
+              scale: 1.5,
               useCORS: true,
               logging: false,
               scrollY: 0,
               windowWidth: 816,
-              letterRendering: true
+              letterRendering: true,
+              imageTimeout: 15000,
+              removeContainer: true
             },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-            pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait', compress: true },
+            pagebreak:    { mode: 'css', after: '.pdf-page' }
           };
 
           // @ts-ignore
-          await html2pdf().from(clone).set(opt).save();
+          await html2pdf().from(cloneContainer).set(opt).save();
           
-          if (clone.parentNode) {
-            document.body.removeChild(clone);
-          }
         } catch (err: any) {
           console.error('PDF Export Error:', err);
-          alert('Failed to export PDF. Try again or check for large images.');
+          alert('Could not generate PDF. If your document is very long or has large images, try splitting it or using smaller images.');
         } finally {
+          if (cloneContainer && cloneContainer.parentNode) {
+            document.body.removeChild(cloneContainer);
+          }
           setIsExporting(false);
         }
       }, 500);
