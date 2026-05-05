@@ -108,6 +108,7 @@ export const Editor = forwardRef<any, EditorProps>(({
               <div
                 ref={(el) => (headerRefs.current[index] = el)}
                 contentEditable
+                inputMode="none"
                 suppressContentEditableWarning
                 className="outline-none text-xs text-gray-400 min-h-[20px]"
                 onInput={(e) => onHeaderChange?.(e.currentTarget.innerHTML)}
@@ -130,6 +131,7 @@ export const Editor = forwardRef<any, EditorProps>(({
             id={`page-editor-${index}`}
             className={`document-page w-full h-full min-h-[820px] outline-none leading-[1.5] text-gray-900 break-words ${isArabic ? 'font-sans' : 'font-serif'}`}
             contentEditable
+            inputMode="none"
             suppressContentEditableWarning
             dir={isArabic ? 'rtl' : 'ltr'}
             style={{ 
@@ -151,6 +153,7 @@ export const Editor = forwardRef<any, EditorProps>(({
               <div
                 ref={(el) => (footerRefs.current[index] = el)}
                 contentEditable
+                inputMode="none"
                 suppressContentEditableWarning
                 className="outline-none text-xs text-gray-400 min-h-[20px] text-center"
                 onInput={(e) => onFooterChange?.(e.currentTarget.innerHTML)}

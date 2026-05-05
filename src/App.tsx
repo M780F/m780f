@@ -1134,6 +1134,7 @@ export default function App() {
                         id="latex-editor"
                         className="flex-1 w-full p-4 bg-white border border-gray-200 rounded-lg font-mono text-base focus:ring-2 focus:ring-[#2b579a] focus:border-transparent outline-none transition-all placeholder:text-gray-300 shadow-inner resize-none"
                         value={equationLaTeX}
+                        inputMode="none"
                         onChange={(e) => setEquationLaTeX(e.target.value)}
                         onKeyDown={handleEditorTab}
                         placeholder="Type LaTeX here..."
