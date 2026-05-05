@@ -232,11 +232,11 @@ export const Ribbon: React.FC<RibbonProps> = ({
         <div className="hidden sm:flex h-9 items-center justify-between px-4 bg-[#2b579a] text-white text-[11px] border-b border-white/10">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-white/15 px-2.5 py-1 rounded-sm backdrop-blur-sm border border-white/10">
-                <div className="flex items-center gap-1">
-                  <span className="text-orange-400 font-black text-[10px]">UoM</span>
-                  <div className="w-[1px] h-3 bg-white/20 mx-0.5" />
-                  <span className="text-blue-300 font-black text-[10px]">CPME</span>
+              <div className="flex items-center gap-2 bg-white/10 px-2 py-1 rounded-sm backdrop-blur-sm border border-white/5">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-orange-500 font-black text-[10px] tracking-tighter drop-shadow-sm">UoM</span>
+                  <div className="w-[1px] h-3 bg-white/20" />
+                  <span className="text-blue-400 font-black text-[10px] tracking-tighter drop-shadow-sm">CPME</span>
                 </div>
               </div>
               <div className="flex items-center gap-2">
