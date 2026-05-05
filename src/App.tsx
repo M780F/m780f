@@ -8,6 +8,8 @@ import { VirtualKeyboard } from './components/WordSimulator/VirtualKeyboard';
 import { IntroScreen } from './components/WordSimulator/IntroScreen';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
+import { motion, AnimatePresence } from 'motion/react';
+import { FileText } from 'lucide-react';
 
 export default function App() {
   const [showIntro, setShowIntro] = useState(true);
@@ -56,9 +58,15 @@ export default function App() {
     lineHeight: '1.2'
   });
 
-  // Auto-save to local storage
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Auto-save to local storage (Debounced)
   useEffect(() => {
     const savedPages = localStorage.getItem('word-document-pages');
+    const savedHeader = localStorage.getItem('word-document-header');
+    const savedFooter = localStorage.getItem('word-document-footer');
+    
     if (savedPages) {
       try {
         const parsed = JSON.parse(savedPages);
@@ -67,11 +75,27 @@ export default function App() {
         console.error('Failed to parse saved pages');
       }
     }
+    if (savedHeader) setHeaderContent(savedHeader);
+    if (savedFooter) setFooterContent(savedFooter);
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('word-document-pages', JSON.stringify(pages));
-  }, [pages]);
+    setSaveStatus('saving');
+    const timeout = setTimeout(() => {
+      try {
+        localStorage.setItem('word-document-pages', JSON.stringify(pages));
+        localStorage.setItem('word-document-header', headerContent);
+        localStorage.setItem('word-document-footer', footerContent);
+        setSaveStatus('saved');
+      } catch (e) {
+        console.error('Auto-save failed:', e);
+        setSaveStatus('error');
+        // If it's a QuotaExceededError, it might be due to large images
+      }
+    }, 1000); // 1 second debounce
+    
+    return () => clearTimeout(timeout);
+  }, [pages, headerContent, footerContent]);
 
   const updateActiveStyles = () => {
     if (typeof document === 'undefined') return;
@@ -306,53 +330,68 @@ export default function App() {
       const element = editorObj.root;
       if (!element) return;
       
-      const clone = element.cloneNode(true) as HTMLElement;
-      // Clean up UI elements from the clone
-      clone.style.paddingBottom = '0';
-      clone.style.gap = '0';
-      clone.style.margin = '0';
-      clone.style.background = 'white';
+      setIsExporting(true);
       
-      const pagesInClone = clone.querySelectorAll('.pdf-page');
-      pagesInClone.forEach((p: any) => {
-        p.style.boxShadow = 'none';
-        p.style.border = 'none';
-        p.style.margin = '0';
-        p.style.width = '816px'; // Exact letter width
-        p.style.maxWidth = '816px';
-        p.style.padding = '1in'; // Standard Word margin for PDF
-        p.style.display = 'block';
-        
-        // Hide UI artifacts
-        const dashedBorders = p.querySelectorAll('.border-dashed');
-        dashedBorders.forEach((b: any) => b.style.border = 'none');
-      });
+      // Delay slightly to allow the UI to update and show the loading state
+      setTimeout(async () => {
+        try {
+          const clone = element.cloneNode(true) as HTMLElement;
+          // Clean up UI elements from the clone
+          clone.style.paddingBottom = '0';
+          clone.style.gap = '0';
+          clone.style.margin = '0';
+          clone.style.background = 'white';
+          
+          const pagesInClone = clone.querySelectorAll('.pdf-page');
+          pagesInClone.forEach((p: any) => {
+            p.style.boxShadow = 'none';
+            p.style.border = 'none';
+            p.style.margin = '0';
+            p.style.width = '816px'; // Exact letter width
+            p.style.maxWidth = '816px';
+            p.style.padding = '1in'; // Standard Word margin for PDF
+            p.style.display = 'block';
+            
+            // Hide UI artifacts
+            const dashedBorders = p.querySelectorAll('.border-dashed');
+            dashedBorders.forEach((b: any) => b.style.border = 'none');
+          });
 
-      // Append temporarily to body but hide it, to ensure styles are computed correctly
-      clone.style.position = 'fixed';
-      clone.style.top = '-9999px';
-      clone.style.left = '-9999px';
-      document.body.appendChild(clone);
+          // Append temporarily to body but hide it, to ensure styles are computed correctly
+          clone.style.position = 'fixed';
+          clone.style.top = '-9999px';
+          clone.style.left = '-9999px';
+          document.body.appendChild(clone);
 
-      const opt = {
-        margin:       0,
-        filename:     'document.pdf',
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { 
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          scrollY: 0,
-          windowWidth: 816
-        },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
-        pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
-      };
+          const opt = {
+            margin:       0,
+            filename:     'document.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { 
+              scale: 2,
+              useCORS: true,
+              logging: false,
+              scrollY: 0,
+              windowWidth: 816,
+              letterRendering: true
+            },
+            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
+            pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+          };
 
-      // @ts-ignore
-      html2pdf().from(clone).set(opt).save().then(() => {
-        document.body.removeChild(clone);
-      });
+          // @ts-ignore
+          await html2pdf().from(clone).set(opt).save();
+          
+          if (clone.parentNode) {
+            document.body.removeChild(clone);
+          }
+        } catch (err: any) {
+          console.error('PDF Export Error:', err);
+          alert('Failed to export PDF. Try again or check for large images.');
+        } finally {
+          setIsExporting(false);
+        }
+      }, 500);
     } else if (command === 'new') {
       if (confirm('Create a new blank document? All unsaved changes will be lost.')) {
         setPages(['']);
@@ -962,7 +1001,44 @@ export default function App() {
 
   return (
     <TooltipProvider>
-      <IntroScreen onStart={() => setShowIntro(false)} />
+      <AnimatePresence>
+        {showIntro && (
+          <IntroScreen onStart={() => setShowIntro(false)} />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isExporting && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/60 backdrop-blur-md"
+          >
+            <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center gap-6 max-w-sm w-full mx-4">
+              <div className="relative w-20 h-20">
+                <div className="absolute inset-0 border-4 border-blue-100 rounded-full" />
+                <div className="absolute inset-0 border-4 border-[#2b579a] rounded-full border-t-transparent animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <FileText className="text-[#2b579a]" size={32} />
+                </div>
+              </div>
+              <div className="text-center">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Generating PDF</h3>
+                <p className="text-gray-500 text-sm">Please wait while we prepare your document. Large files may take a bit longer.</p>
+              </div>
+              <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: "0%" }}
+                  animate={{ width: "90%" }}
+                  transition={{ duration: 5, ease: "linear" }}
+                  className="bg-[#2b579a] h-full"
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {!showIntro && (
         <div className="flex flex-col h-screen bg-[#f3f2f1] overflow-hidden font-sans select-none animate-in fade-in duration-700">
@@ -1238,7 +1314,7 @@ export default function App() {
 
         {/* Status Bar - Hidden on very short screens (landscape mobile) */}
         <div className="hidden min-h-[400px]:block">
-          <StatusBar content={pages.join('')} />
+          <StatusBar content={pages.join('')} saveStatus={saveStatus} />
         </div>
       </div>
       )}
