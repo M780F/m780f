@@ -92,6 +92,7 @@ export const Editor = forwardRef<any, EditorProps>(({
       {pages.map((pageContent, index) => (
         <div 
           key={index}
+          data-page-index={index}
           className={`pdf-page html2pdf__page-break w-full max-w-[816px] min-h-[1056px] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.08)] p-4 sm:p-12 md:p-[96px] pt-16 md:pt-[128px] pb-16 md:pb-[128px] outline-none relative mx-auto transition-all duration-300 shrink-0 ${index === currentPageIndex ? 'shadow-[0_8px_32px_rgba(0,0,0,0.12)]' : ''}`}
           onClick={() => onFocusPage?.(index)}
         >

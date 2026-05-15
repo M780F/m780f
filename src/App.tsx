@@ -417,12 +417,14 @@ export default function App() {
 
           const docTitle = documents.find(d => d.id === activeDocId)?.title || 'document';
           
+          const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+          
           const opt = {
-            margin: 0.2, // Small margin to prevent clipping
+            margin: [0, 0], // Zero margin for standard sizing
             filename: `${docTitle}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { 
-              scale: 2,
+              scale: isMobile ? 1.2 : 2,
               useCORS: true,
               logging: false,
               letterRendering: true,
@@ -435,7 +437,7 @@ export default function App() {
               format: 'letter', 
               orientation: 'portrait',
               compress: true,
-              precision: 16
+              precision: 12
             },
             pagebreak: { mode: ['css', 'legacy'], after: '.pdf-page' }
           };
@@ -443,16 +445,19 @@ export default function App() {
           // Check if library is available
           // @ts-ignore
           if (typeof html2pdf === 'undefined') {
-            throw new Error('PDF export library failed to load. Please try printing to PDF instead.');
+            throw new Error('PDF library not ready');
           }
 
           // Use the worker interface for better control
           // @ts-ignore
-          await html2pdf().from(cloneContainer).set(opt).save();
+          const worker = html2pdf().from(cloneContainer).set(opt);
+          await worker.save();
           
         } catch (err: any) {
           console.error('PDF Export Error:', err);
-          alert(`Failed to export PDF: ${err.message || 'Unknown error'}. Try reducing image sizes or splitting the document.`);
+          alert(`Failed to export PDF: ${err.message || 'Unknown error'}. 
+
+Tip: Use the "Print / Save to Phone" option from the File menu instead. It is more reliable for large documents on mobile devices.`);
         } finally {
           if (cloneContainer && cloneContainer.parentNode) {
             document.body.removeChild(cloneContainer);
@@ -829,8 +834,8 @@ export default function App() {
         // Insert image with a wrapper for better control and resizing handles simulation
         const imgHtml = `
           <div class="image-wrapper" style="display: inline-block; position: relative; margin: 10px; cursor: move; user-select: none; max-width: 100%; transition: all 0.3s; touch-action: none;" contenteditable="false">
-            <img src="${dataUrl}" style="display: block; width: 200px; height: auto; pointer-events: none; border-radius: 0;" />
-            <div class="resize-handle" style="position: absolute; bottom: -5px; right: -5px; width: 24px; height: 24px; background: #2b579a; cursor: nwse-resize; border-radius: 4px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); touch-action: none;"></div>
+            <img src="${dataUrl}" draggable="false" style="display: block; width: 200px; height: auto; pointer-events: none; border-radius: 0;" />
+            <div class="resize-handle" style="position: absolute; bottom: -8px; right: -8px; width: 28px; height: 28px; background: #2b579a; cursor: nwse-resize; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 8px rgba(0,0,0,0.3); touch-action: none; z-index: 50;"></div>
           </div>
           <p contenteditable="true">&nbsp;</p>
         `;
@@ -947,51 +952,51 @@ export default function App() {
     }
   };
 
-  const handleConfirmEquation = () => {
-    const editorObj = editorRef.current as any;
-    if (!editorObj) return;
-    
-    const renderedHtml = katex.renderToString(equationLaTeX, {
-      throwOnError: false,
-      displayMode: equationIsDisplayMode,
-      output: 'html',
-      errorColor: '#2b579a',
-      strict: false,
-      trust: true
-    });
+    const handleConfirmEquation = () => {
+      const editorObj = editorRef.current as any;
+      if (!editorObj) return;
+      
+      const renderedHtml = katex.renderToString(equationLaTeX, {
+        throwOnError: false,
+        displayMode: equationIsDisplayMode,
+        output: 'html',
+        errorColor: '#2b579a',
+        strict: false,
+        trust: true
+      });
 
-    if (editingEquationNode) {
-      editingEquationNode.innerHTML = renderedHtml;
-      editingEquationNode.setAttribute('data-latex', equationLaTeX);
-      editingEquationNode.setAttribute('data-display', equationIsDisplayMode ? 'true' : 'false');
-      editingEquationNode.setAttribute('aria-label', `Equation: ${equationLaTeX}`);
-      
-      // Update display style
-      if (equationIsDisplayMode) {
-        editingEquationNode.style.display = 'block';
-        editingEquationNode.style.textAlign = 'center';
-        editingEquationNode.style.width = '100%';
-        editingEquationNode.style.margin = '1.5em 0';
+      if (editingEquationNode) {
+        editingEquationNode.innerHTML = renderedHtml;
+        editingEquationNode.setAttribute('data-latex', equationLaTeX);
+        editingEquationNode.setAttribute('data-display', equationIsDisplayMode ? 'true' : 'false');
+        editingEquationNode.setAttribute('aria-label', `Equation: ${equationLaTeX}`);
+        
+        // Update display style
+        if (equationIsDisplayMode) {
+          editingEquationNode.style.display = 'block';
+          editingEquationNode.style.textAlign = 'center';
+          editingEquationNode.style.width = '100%';
+          editingEquationNode.style.margin = '1.5em 0';
+        } else {
+          editingEquationNode.style.display = 'inline-block';
+          editingEquationNode.style.textAlign = 'left';
+          editingEquationNode.style.width = 'auto';
+          editingEquationNode.style.margin = '0 4px';
+        }
       } else {
-        editingEquationNode.style.display = 'inline-block';
-        editingEquationNode.style.textAlign = 'left';
-        editingEquationNode.style.width = 'auto';
-        editingEquationNode.style.margin = '0 4px';
+        editorObj.focus(currentPageIndex);
+        // Improved styles: atomic, selectable, and deletable like Word
+        const style = equationIsDisplayMode 
+          ? "display: block; text-align: center; width: 100%; margin: 1.5em 0; padding: 12px; background: rgba(43, 87, 154, 0.02); border-radius: 8px; cursor: move; transition: all 0.2s; user-select: all; outline: none; border: 1px solid transparent; position: relative;"
+          : "display: inline-block; padding: 4px 8px; background: rgba(43, 87, 154, 0.02); cursor: move; margin: 0 4px; vertical-align: middle; transition: all 0.2s; user-select: all; border-radius: 4px; outline: none; border: 1px solid transparent; position: relative;";
+        
+        const equationHtml = `<span class="equation-wrapper" data-latex="${equationLaTeX.replace(/"/g, '&quot;')}" data-display="${equationIsDisplayMode}" contenteditable="false" draggable="true" role="math" aria-label="Equation: ${equationLaTeX.replace(/"/g, '&quot;')}" style="${style}; touch-action: none;" tabindex="0" onmouseover="this.style.borderColor='rgba(43, 87, 154, 0.3)'; this.style.background='rgba(43, 87, 154, 0.05)'" onmouseout="if(document.activeElement !== this) { this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)' }" onfocus="this.style.borderColor='#2b579a'; this.style.background='rgba(43, 87, 154, 0.1)'; this.style.boxShadow='0 0 0 2px rgba(43, 87, 154, 0.2)'" onblur="this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)'; this.style.boxShadow='none'">${renderedHtml}</span>`;
+        document.execCommand('insertHTML', false, equationHtml);
       }
-    } else {
-      editorObj.focus(currentPageIndex);
-      // Improved styles: atomic, selectable, and deletable like Word
-      const style = equationIsDisplayMode 
-        ? "display: block; text-align: center; width: 100%; margin: 1.5em 0; padding: 12px; background: rgba(43, 87, 154, 0.02); border-radius: 8px; cursor: pointer; transition: all 0.2s; user-select: all; outline: none; border: 1px solid transparent; position: relative;"
-        : "display: inline-block; padding: 4px 8px; background: rgba(43, 87, 154, 0.02); cursor: pointer; margin: 0 4px; vertical-align: middle; transition: all 0.2s; user-select: all; border-radius: 4px; outline: none; border: 1px solid transparent; position: relative;";
       
-      const equationHtml = `<span class="equation-wrapper" data-latex="${equationLaTeX.replace(/"/g, '&quot;')}" data-display="${equationIsDisplayMode}" contenteditable="false" draggable="true" role="math" aria-label="Equation: ${equationLaTeX.replace(/"/g, '&quot;')}" style="${style}; touch-action: none;" tabindex="0" onmouseover="this.style.borderColor='rgba(43, 87, 154, 0.3)'; this.style.background='rgba(43, 87, 154, 0.05)'" onmouseout="if(document.activeElement !== this) { this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)' }" onfocus="this.style.borderColor='#2b579a'; this.style.background='rgba(43, 87, 154, 0.1)'; this.style.boxShadow='0 0 0 2px rgba(43, 87, 154, 0.2)'" onblur="this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)'; this.style.boxShadow='none'">${renderedHtml}</span>`;
-      document.execCommand('insertHTML', false, equationHtml);
-    }
-    
-    setIsEquationModalOpen(false);
-    setEditingEquationNode(null);
-  };
+      setIsEquationModalOpen(false);
+      setEditingEquationNode(null);
+    };
 
   const handleKeyClick = (key: string) => {
     const editorObj = editorRef.current as any;
@@ -1041,7 +1046,7 @@ export default function App() {
     const editor = editorObj?.root;
     if (!editor) return;
 
-    const handleStart = (e: any) => {
+    const handleStart = (e: PointerEvent | TouchEvent) => {
       const target = e.target as HTMLElement;
       
       // Handle Equation Focusing
@@ -1059,18 +1064,30 @@ export default function App() {
       const isHandle = target.classList.contains('resize-handle');
       
       if (!wrapper && !isHandle) {
-        setSelectedImage(null);
+        // Only clear if we're not clicking the layout button
+        if (!target.closest('.fixed.z-\\[100\\]')) {
+          setSelectedImage(null);
+        }
         return;
       }
 
       const actualWrapper = isHandle ? target.parentElement! as HTMLElement : wrapper!;
-      const eventPos = e.touches ? e.touches[0] : e;
+      
+      // Use pointer events if available, fallback to touch
+      let clientX, clientY;
+      if ('touches' in e) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = (e as PointerEvent).clientX;
+        clientY = (e as PointerEvent).clientY;
+      }
       
       dragInfo.current = {
         isDragging: !isHandle,
         isResizing: isHandle,
-        startX: eventPos.clientX,
-        startY: eventPos.clientY,
+        startX: clientX,
+        startY: clientY,
         currentElement: actualWrapper,
         startWidth: 0,
         startHeight: 0,
@@ -1080,6 +1097,9 @@ export default function App() {
 
       const info = dragInfo.current;
       setSelectedImage(actualWrapper);
+      
+      // Disable transitions during manipulation
+      actualWrapper.style.transition = 'none';
 
       // Free movement conversion
       const isAbsolute = actualWrapper.style.position === 'absolute' || actualWrapper.getAttribute('data-layout') === 'absolute';
@@ -1117,20 +1137,30 @@ export default function App() {
       e.stopPropagation();
     };
 
-    const handleMove = (e: any) => {
+    const handleMove = (e: PointerEvent | TouchEvent) => {
       const info = dragInfo.current;
       if (!info.currentElement) return;
 
-      const eventPos = e.touches ? e.touches[0] : e;
-      const deltaX = eventPos.clientX - info.startX;
-      const deltaY = eventPos.clientY - info.startY;
+      let clientX, clientY;
+      if ('touches' in e) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = (e as PointerEvent).clientX;
+        clientY = (e as PointerEvent).clientY;
+      }
+
+      const deltaX = clientX - info.startX;
+      const deltaY = clientY - info.startY;
 
       if (info.isResizing) {
         const img = info.currentElement.querySelector('img');
         if (img) {
-          img.style.width = `${Math.max(50, info.startWidth + deltaX)}px`;
+          const newWidth = Math.max(50, info.startWidth + deltaX);
+          img.style.width = `${newWidth}px`;
         } else {
-          info.currentElement.style.width = `${Math.max(50, info.startWidth + deltaX)}px`;
+          const newWidth = Math.max(50, info.startWidth + deltaX);
+          info.currentElement.style.width = `${newWidth}px`;
         }
       } else if (info.isDragging) {
         info.currentElement.style.left = `${info.startLeft + deltaX}px`;
@@ -1144,26 +1174,50 @@ export default function App() {
     };
 
     const handleEnd = () => {
+      const info = dragInfo.current;
+      if (info.currentElement) {
+        // Restore transition
+        info.currentElement.style.transition = 'all 0.3s';
+        
+        // SYNC STATE: This is crucial to ensure the move is saved
+        const pageNode = info.currentElement.closest('.pdf-page') as HTMLElement;
+        const pageEditor = pageNode?.querySelector('.document-page') as HTMLElement;
+        const pageIndexStr = pageNode?.getAttribute('data-page-index');
+        
+        if (pageEditor && pageIndexStr !== null) {
+          const index = parseInt(pageIndexStr);
+          if (!isNaN(index)) {
+             // Use functional update to avoid stale closure on 'pages'
+             setPages(prev => {
+                const newPages = [...prev];
+                newPages[index] = pageEditor.innerHTML;
+                return newPages;
+             });
+          }
+        }
+      }
+      
       dragInfo.current.currentElement = null;
       dragInfo.current.isDragging = false;
       dragInfo.current.isResizing = false;
     };
 
-    editor.addEventListener('mousedown', handleStart);
-    document.addEventListener('mousemove', handleMove);
-    document.addEventListener('mouseup', handleEnd);
+    editor.addEventListener('pointerdown', handleStart);
+    window.addEventListener('pointermove', handleMove as any);
+    window.addEventListener('pointerup', handleEnd);
     
-    editor.addEventListener('touchstart', handleStart, { passive: false });
-    document.addEventListener('touchmove', handleMove as any, { passive: false });
-    document.addEventListener('touchend', handleEnd);
+    // Add touch specifics just in case pointer events aren't fully supported on some webviews
+    editor.addEventListener('touchstart', handleStart as any, { passive: false });
+    window.addEventListener('touchmove', handleMove as any, { passive: false });
+    window.addEventListener('touchend', handleEnd);
 
     const cleanup = () => {
-      editor.removeEventListener('mousedown', handleStart);
-      document.removeEventListener('mousemove', handleMove);
-      document.removeEventListener('mouseup', handleEnd);
-      editor.removeEventListener('touchstart', handleStart);
-      document.removeEventListener('touchmove', handleMove as any);
-      document.removeEventListener('touchend', handleEnd);
+      editor.removeEventListener('pointerdown', handleStart);
+      window.removeEventListener('pointermove', handleMove as any);
+      window.removeEventListener('pointerup', handleEnd);
+      editor.removeEventListener('touchstart', handleStart as any);
+      window.removeEventListener('touchmove', handleMove as any);
+      window.removeEventListener('touchend', handleEnd);
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1233,7 +1287,7 @@ export default function App() {
             key="main"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col h-screen overflow-hidden select-none"
+            className="flex flex-col h-screen overflow-hidden"
           >
             <input 
               type="file" 
