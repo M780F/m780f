@@ -6,12 +6,20 @@ import { Editor } from './components/WordSimulator/Editor';
 import { StatusBar } from './components/WordSimulator/StatusBar';
 import { VirtualKeyboard } from './components/WordSimulator/VirtualKeyboard';
 import { IntroScreen } from './components/WordSimulator/IntroScreen';
+import { DocumentSidebar } from './components/WordSimulator/DocumentSidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'motion/react';
-import { FileText } from 'lucide-react';
+import { FileText, LogIn, LogOut, FolderOpen, Plus, Trash2, FileEdit } from 'lucide-react';
+import { auth, signInWithGoogle } from './lib/firebase';
+import { onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { documentService, WordDocument } from './services/documentService';
 
 export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [documents, setDocuments] = useState<WordDocument[]>([]);
+  const [activeDocId, setActiveDocId] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [showKeyboard, setShowKeyboard] = useState(true);
@@ -61,31 +69,133 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
   const [isExporting, setIsExporting] = useState(false);
 
-  // Auto-save to local storage (Debounced)
+  // Auth & Initial load
   useEffect(() => {
-    const savedPages = localStorage.getItem('word-document-pages');
-    const savedHeader = localStorage.getItem('word-document-header');
-    const savedFooter = localStorage.getItem('word-document-footer');
-    
-    if (savedPages) {
-      try {
-        const parsed = JSON.parse(savedPages);
-        if (Array.isArray(parsed)) setPages(parsed);
-      } catch (e) {
-        console.error('Failed to parse saved pages');
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // Load documents for user
+        const docs = await documentService.getDocuments(currentUser.uid);
+        setDocuments(docs);
+        
+        // If there's a last active doc in local storage, try to load it
+        const lastDocId = localStorage.getItem('word-last-doc-id');
+        if (lastDocId && docs.find(d => d.id === lastDocId)) {
+          loadDocument(lastDocId);
+        } else if (docs.length > 0) {
+          loadDocument(docs[0].id);
+        } else {
+          // Create an initial document for new user
+          const newId = await documentService.createDocument(currentUser.uid, 'My First Document');
+          const updatedDocs = await documentService.getDocuments(currentUser.uid);
+          setDocuments(updatedDocs);
+          if (newId) loadDocument(newId);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const loadDocument = async (docId: string) => {
+    const doc = await documentService.getDocument(docId);
+    if (doc) {
+      setPages(doc.pages);
+      setHeaderContent(doc.headerContent || '');
+      setFooterContent(doc.footerContent || '');
+      setActiveDocId(docId);
+      localStorage.setItem('word-last-doc-id', docId);
+    }
+  };
+
+  const handleCreateDocument = async () => {
+    if (!user) {
+      await handleSignIn();
+      return;
+    }
+    const newId = await documentService.createDocument(user.uid, 'Untitled Document');
+    const docs = await documentService.getDocuments(user.uid);
+    setDocuments(docs);
+    if (newId) loadDocument(newId);
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    if (confirm('Are you sure you want to delete this document?')) {
+      await documentService.deleteDocument(docId);
+      const docs = await documentService.getDocuments(user!.uid);
+      setDocuments(docs);
+      if (activeDocId === docId) {
+        if (docs.length > 0) loadDocument(docs[0].id);
+        else {
+          setPages(['']);
+          setActiveDocId(null);
+        }
       }
     }
-    if (savedHeader) setHeaderContent(savedHeader);
-    if (savedFooter) setFooterContent(savedFooter);
+  };
+
+  const handleRenameDocument = async (docId: string, newTitle: string) => {
+    await documentService.updateDocument(docId, { title: newTitle });
+    const docs = await documentService.getDocuments(user!.uid);
+    setDocuments(docs);
+  };
+
+  const handleSignIn = async () => {
+    try {
+      const signedInUser = await signInWithGoogle();
+      if (signedInUser) setIsSidebarOpen(true);
+    } catch (e) {
+      console.error('Sign in failed');
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    setDocuments([]);
+    setActiveDocId(null);
+    setPages(['']);
+    setIsSidebarOpen(false);
+  };
+
+  // Auto-save logic
+  useEffect(() => {
+    if (!user && !activeDocId) {
+      // Offline mode auto-save
+      const savedPages = localStorage.getItem('word-document-pages');
+      const savedHeader = localStorage.getItem('word-document-header');
+      const savedFooter = localStorage.getItem('word-document-footer');
+      
+      if (savedPages) {
+        try {
+          const parsed = JSON.parse(savedPages);
+          if (Array.isArray(parsed)) setPages(parsed);
+        } catch (e) {
+          console.error('Failed to parse saved pages');
+        }
+      }
+      if (savedHeader) setHeaderContent(savedHeader);
+      if (savedFooter) setFooterContent(savedFooter);
+    }
   }, []);
 
   useEffect(() => {
     setSaveStatus('saving');
-    const timeout = setTimeout(() => {
+    const timeout = setTimeout(async () => {
       try {
-        localStorage.setItem('word-document-pages', JSON.stringify(pages));
-        localStorage.setItem('word-document-header', headerContent);
-        localStorage.setItem('word-document-footer', footerContent);
+        if (user && activeDocId) {
+          // Save to Firestore
+          await documentService.updateDocument(activeDocId, {
+            pages,
+            headerContent,
+            footerContent
+          });
+          // Update local documents list to reflect latest
+          setDocuments(prev => prev.map(d => d.id === activeDocId ? { ...d, pages, updatedAt: new Date() } : d));
+        } else {
+          // Save to LocalStorage (Legacy/Guest)
+          localStorage.setItem('word-document-pages', JSON.stringify(pages));
+          localStorage.setItem('word-document-header', headerContent);
+          localStorage.setItem('word-document-footer', footerContent);
+        }
         setSaveStatus('saved');
       } catch (e) {
         console.error('Auto-save failed:', e);
@@ -219,114 +329,11 @@ export default function App() {
   }, [showKeyboard]);
 
   const handleFormat = (command: string, value?: string) => {
-    const editorObj = editorRef.current as any;
+    const editorObj = (editorRef.current as any);
     if (!editorObj) return;
     
-    // Ensure active editor page is focused before executing command
-    editorObj.focus(currentPageIndex);
-    
-    // Use CSS styles instead of HTML tags (better for mobile/iPhone)
-    document.execCommand('styleWithCSS', false, true as any);
-    
-    if (command === 'fontSize') {
-      applyModernFontSize(value || '3');
-    } else if (command === 'fontName') {
-      document.execCommand('fontName', false, value);
-    } else if (command === 'subscript') {
-      // Toggle off superscript if active
-      if (document.queryCommandState('superscript')) {
-        document.execCommand('superscript', false);
-      }
-      document.execCommand('subscript', false);
-    } else if (command === 'superscript') {
-      // Toggle off subscript if active
-      if (document.queryCommandState('subscript')) {
-        document.execCommand('subscript', false);
-      }
-      document.execCommand('superscript', false);
-    } else if (command === 'insertTable') {
-      const rows = 3;
-      const cols = 3;
-      let tableHtml = '<table style="width:100%; border-collapse:collapse; border:1px solid #ccc; margin:10px 0;">';
-      for (let i = 0; i < rows; i++) {
-        tableHtml += '<tr>';
-        for (let j = 0; j < cols; j++) {
-          tableHtml += '<td style="border:1px solid #ccc; padding:8px; min-height:20px;">&nbsp;</td>';
-        }
-        tableHtml += '</tr>';
-      }
-      tableHtml += '</table><p>&nbsp;</p>';
-      document.execCommand('insertHTML', false, tableHtml);
-    } else if (command === 'insertEquation') {
-      setEditingEquationNode(null);
-      setEquationLaTeX('\\sigma = \\sqrt{\\frac{1}{N} \\sum_{i=1}^N (x_i - \\mu)^2}');
-      setEquationIsDisplayMode(false);
-      setIsEquationModalOpen(true);
-    } else if (command === 'insertImage') {
-      imageInputRef.current?.click();
-    } else if (command === 'insertFile') {
-      fileInputRef.current?.click();
-    } else if (command === 'orderedListType') {
-      // First ensure we have a list
-      if (!activeStyles.orderedList) {
-        document.execCommand('insertOrderedList', false);
-      }
-      
-      // Post-process: Find the OL parent and apply style
-      setTimeout(() => {
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0) {
-          let node = selection.anchorNode as Node | null;
-          while (node && !editorObj.root?.contains(node)) {
-            if (node.nodeName === 'OL') {
-              (node as HTMLElement).style.listStyleType = value || 'decimal';
-              break;
-            }
-            node = node.parentNode;
-          }
-        }
-      }, 0);
-    } else if (command === 'lineHeight') {
-      const selection = window.getSelection();
-      if (selection && selection.rangeCount > 0) {
-        let node = selection.anchorNode as Node | null;
-        // Move up to the closest block element or LI
-        while (node && !editorObj.root?.contains(node)) {
-          if (node.nodeType === 1 && (['P', 'DIV', 'H1', 'H2', 'H3', 'LI'].includes((node as HTMLElement).tagName))) {
-            (node as HTMLElement).style.lineHeight = value || '1.2';
-            break;
-          }
-          node = node.parentNode;
-        }
-      }
-    } else if (command === 'formatBlock') {
-      const currentBlock = document.queryCommandValue('formatBlock').toLowerCase();
-      const targetBlock = value?.toLowerCase();
-      
-      // Microsoft Word Style application:
-      if (currentBlock === targetBlock) {
-        document.execCommand('formatBlock', false, '<p>');
-        applyModernFontSize('3');
-      } else {
-        document.execCommand('formatBlock', false, `<${value}>`);
-        
-        // Map Heading and special styles to Word-like default sizes
-        const defaultSizes: Record<string, string> = {
-          'h1': '7', // 36pt
-          'h2': '6', // 24pt
-          'h3': '5', // 18pt
-          'h4': '4', // 14pt
-          'h5': '3', // 11pt bold
-          'h6': '2', // 10pt bold
-        };
-        
-        if (defaultSizes[targetBlock || '']) {
-          applyModernFontSize(defaultSizes[targetBlock || '']);
-        } else if (targetBlock === 'p') {
-          applyModernFontSize('3');
-        }
-      }
-    } else if (command === 'exportPDF') {
+    // Commands that don't need editor focus
+    if (command === 'exportPDF') {
       const element = editorObj.root;
       if (!element) return;
       
@@ -347,7 +354,9 @@ export default function App() {
 
           // Clone only the pages, not the entire UI
           const pagesElements = element.querySelectorAll('.pdf-page');
-          pagesElements.forEach((pageEl) => {
+          if (pagesElements.length === 0) throw new Error('No pages found to export');
+
+          pagesElements.forEach((pageEl: any) => {
             const pageClone = pageEl.cloneNode(true) as HTMLElement;
             pageClone.style.boxShadow = 'none';
             pageClone.style.border = 'none';
@@ -359,15 +368,21 @@ export default function App() {
             pageClone.style.pageBreakAfter = 'always';
             
             // Remove any dashed borders or UI helpers
-            const helpers = pageClone.querySelectorAll('.border-dashed, .cursor-pointer');
-            helpers.forEach((h: any) => h.style.border = 'none');
+            const helpers = pageClone.querySelectorAll('.border-dashed, .cursor-pointer, .absolute');
+            helpers.forEach((h: any) => {
+              // Keep text content but remove styling that might look like UI
+              if (h.classList.contains('border-dashed')) h.style.border = 'none';
+              if (h.classList.contains('absolute') && (h.textContent === 'Header' || h.textContent === 'Footer')) {
+                h.style.display = 'none';
+              }
+            });
             
             cloneContainer?.appendChild(pageClone);
           });
 
           const opt = {
             margin:       0,
-            filename:     'document.pdf',
+            filename:     `${documents.find(d => d.id === activeDocId)?.title || 'document'}.pdf`,
             image:        { type: 'jpeg', quality: 0.95 },
             html2canvas:  { 
               scale: 1.5,
@@ -396,7 +411,10 @@ export default function App() {
           setIsExporting(false);
         }
       }, 500);
-    } else if (command === 'new') {
+      return;
+    }
+
+    if (command === 'new') {
       if (confirm('Create a new blank document? All unsaved changes will be lost.')) {
         setPages(['']);
         setCurrentPageIndex(0);
@@ -404,41 +422,31 @@ export default function App() {
         setFooterContent('');
         setShowHeader(false);
         setShowFooter(false);
+        setActiveDocId(null);
       }
-    } else if (command === 'openBrowser') {
-      openDocInputRef.current?.click();
-    } else if (command === 'saveDoc') {
-      // Create a full HTML document blob
-      const content = pages.map((p, i) => `
-        <div class="page" data-page-index="${i}">
-          ${p}
-        </div>
-      `).join('');
-      
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Word Document</title>
-          <style>
-            body { font-family: Arial, sans-serif; }
-            .page { min-height: 1056px; width: 816px; margin: 20px auto; padding: 1in; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-          </style>
-        </head>
-        <body>
-          ${content}
-        </body>
-        </html>
-      `;
-      
-      const blob = new Blob([html], { type: 'text/html' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'document.html';
-      a.click();
-      URL.revokeObjectURL(url);
+      return;
+    }
+
+    if (command === 'open') {
+      setIsSidebarOpen(true);
+      return;
+    }
+
+    // Commands that need editor focus
+    editorObj.focus(currentPageIndex);
+    // Use CSS styles instead of HTML tags (better for mobile/iPhone)
+    document.execCommand('styleWithCSS', false, true as any);
+    
+    if (command === 'fontSize') {
+      applyModernFontSize(value || '3');
+    } else if (command === 'formatBlock') {
+      document.execCommand('formatBlock', false, value);
+    } else if (command === 'fontName') {
+      document.execCommand('fontName', false, value);
+    } else if (command === 'foreColor') {
+      document.execCommand('foreColor', false, value);
+    } else if (command === 'hiliteColor') {
+      document.execCommand('hiliteColor', false, value);
     } else if (command === 'undo') {
       document.execCommand('undo', false);
     } else if (command === 'redo') {
@@ -1004,10 +1012,107 @@ export default function App() {
   }, []);
 
   return (
+    <div className="min-h-screen bg-[#f3f2f1] font-sans">
     <TooltipProvider>
-      <AnimatePresence>
-        {showIntro && (
-          <IntroScreen onStart={() => setShowIntro(false)} />
+      <DocumentSidebar 
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        user={user}
+        documents={documents}
+        activeDocId={activeDocId}
+        onSelect={loadDocument}
+        onCreate={handleCreateDocument}
+        onDelete={handleDeleteDocument}
+        onRename={handleRenameDocument}
+        onLogout={handleLogout}
+      />
+
+      <AnimatePresence mode="wait">
+        {showIntro ? (
+          <IntroScreen key="intro" onStart={() => setShowIntro(false)} />
+        ) : (
+          <motion.div 
+            key="main"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex flex-col h-screen overflow-hidden select-none"
+          >
+            <input 
+              type="file" 
+              ref={imageInputRef} 
+              className="hidden" 
+              accept="image/*" 
+              onChange={handleImageUpload} 
+            />
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              onChange={handleFileUpload} 
+            />
+            {/* Ribbon Header - Auto-collapses or can be manually toggled */}
+            <div className={`transition-all duration-300 ease-in-out shrink-0 ${isRibbonCollapsed ? 'h-8 sm:h-9' : 'h-auto'}`}>
+              <input type="file" ref={openDocInputRef} style={{ display: 'none' }} accept=".html,.txt" onChange={handleOpenDoc} />
+              <Ribbon 
+                onFormat={handleFormat} 
+                onToggleKeyboard={() => setShowKeyboard(!showKeyboard)} 
+                isCollapsed={isRibbonCollapsed}
+                onToggleCollapse={() => setIsRibbonCollapsed(!isRibbonCollapsed)}
+                hasSelectedImage={!!selectedImage}
+                activeStyles={activeStyles}
+                onOpenDocuments={() => {
+                  if (user) setIsSidebarOpen(true);
+                  else handleSignIn();
+                }}
+                user={user}
+                activeDocTitle={documents.find(d => d.id === activeDocId)?.title || (user ? 'Select a document' : 'Guest Document')}
+              />
+            </div>
+            
+            {/* Main Workspace */}
+            <div 
+              className="flex-1 overflow-y-auto w-full flex flex-col items-center p-2 sm:p-6 md:p-10 lg:p-16 scrollbar-hide bg-[#e6e6e6]"
+              onClick={() => {
+                if (!showKeyboard) editorRef.current?.focus();
+              }}
+            >
+              <Editor 
+                ref={editorRef} 
+                pages={pages}
+                currentPageIndex={currentPageIndex}
+                onChange={(newContent, index) => {
+                  const newPages = [...pages];
+                  newPages[index] = newContent;
+                  setPages(newPages);
+                }} 
+                isArabic={isArabic}
+                header={headerContent}
+                footer={footerContent}
+                onHeaderChange={setHeaderContent}
+                onFooterChange={setFooterContent}
+                showHeader={showHeader}
+                showFooter={showFooter}
+                onFocusPage={setCurrentPageIndex}
+              />
+            </div>
+
+            {/* Virtual Keyboard */}
+            {showKeyboard && (
+              <div className="bg-white border-t border-gray-300 p-1 sm:p-4 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.1)] z-20 shrink-0">
+                <VirtualKeyboard 
+                  onKeyClick={handleKeyClick} 
+                  onClose={() => setShowKeyboard(false)} 
+                  isArabic={isArabic}
+                  onLanguageToggle={() => setIsArabic(!isArabic)}
+                />
+              </div>
+            )}
+
+            {/* Status Bar - Hidden on very short screens (landscape mobile) */}
+            <div className="hidden min-h-[400px]:block shrink-0">
+              <StatusBar content={pages.join('')} saveStatus={saveStatus} />
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
 
@@ -1044,284 +1149,211 @@ export default function App() {
         )}
       </AnimatePresence>
       
-      {!showIntro && (
-        <div className="flex flex-col h-screen bg-[#f3f2f1] overflow-hidden font-sans select-none animate-in fade-in duration-700">
-        <input 
-          type="file" 
-          ref={imageInputRef} 
-          className="hidden" 
-          accept="image/*" 
-          onChange={handleImageUpload} 
-        />
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          className="hidden" 
-          onChange={handleFileUpload} 
-        />
-        {/* Ribbon Header - Auto-collapses or can be manually toggled */}
-        <div className={`transition-all duration-300 ease-in-out ${isRibbonCollapsed ? 'h-8 sm:h-9' : 'h-auto'}`}>
-          <input type="file" ref={openDocInputRef} style={{ display: 'none' }} accept=".html,.txt" onChange={handleOpenDoc} />
-      <Ribbon 
-            onFormat={handleFormat} 
-            onToggleKeyboard={() => setShowKeyboard(!showKeyboard)} 
-            isCollapsed={isRibbonCollapsed}
-            onToggleCollapse={() => setIsRibbonCollapsed(!isRibbonCollapsed)}
-            hasSelectedImage={!!selectedImage}
-            activeStyles={activeStyles}
-          />
-        </div>
-        
-        {/* Main Workspace */}
-        <div 
-          className="flex-1 overflow-y-auto w-full flex flex-col items-center p-2 sm:p-6 md:p-10 lg:p-16 scrollbar-hide bg-[#e6e6e6]"
-          onClick={() => {
-            if (!showKeyboard) editorRef.current?.focus();
-          }}
-        >
-          <Editor 
-            ref={editorRef} 
-            pages={pages}
-            currentPageIndex={currentPageIndex}
-            onChange={(newContent, index) => {
-              const newPages = [...pages];
-              newPages[index] = newContent;
-              setPages(newPages);
-            }} 
-            isArabic={isArabic}
-            header={headerContent}
-            footer={footerContent}
-            onHeaderChange={setHeaderContent}
-            onFooterChange={setFooterContent}
-            showHeader={showHeader}
-            showFooter={showFooter}
-            onFocusPage={setCurrentPageIndex}
-          />
-        </div>
-
-        {/* Virtual Keyboard */}
-        {showKeyboard && (
-          <div className="bg-white border-t border-gray-300 p-1 sm:p-4 animate-in slide-in-from-bottom duration-300 shadow-[0_-10px_25px_-5px_rgba(0,0,0,0.1)] z-20">
-            <VirtualKeyboard 
-              onKeyClick={handleKeyClick} 
-              onClose={() => setShowKeyboard(false)} 
-              isArabic={isArabic}
-              onLanguageToggle={() => setIsArabic(!isArabic)}
-            />
-          </div>
-        )}
-
-        {/* Equation Editor Modal */}
-        {isEquationModalOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[85vh] overflow-hidden border border-gray-200 animate-in zoom-in-95 duration-200 flex flex-col">
-              <div className="bg-[#2b579a] p-3 flex justify-between items-center text-white shrink-0">
-                <div className="flex items-center gap-2">
-                  <div className="bg-white/20 p-1 rounded">
-                    <span className="font-serif italic font-bold">∑</span>
-                  </div>
-                  <h3 className="font-semibold text-sm">Equation Editor (LaTeX)</h3>
+      {/* Equation Editor Modal */}
+      {isEquationModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[85vh] overflow-hidden border border-gray-200 animate-in zoom-in-95 duration-200 flex flex-col">
+            <div className="bg-[#2b579a] p-3 flex justify-between items-center text-white shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="bg-white/20 p-1 rounded">
+                  <span className="font-serif italic font-bold">∑</span>
                 </div>
-                <button 
-                  onClick={() => setIsEquationModalOpen(false)}
-                  className="hover:bg-white/20 p-1 rounded-full transition-colors"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                </button>
+                <h3 className="font-semibold text-sm">Equation Editor (LaTeX)</h3>
               </div>
-              
-              <div className="flex flex-1 flex-col overflow-hidden">
-                {/* Horizontal Equation Ribbon */}
-                <div className="bg-gray-50 border-b border-gray-200 overflow-x-auto shrink-0 flex items-start gap-4 p-3 shadow-inner scrollbar-hide">
-                  <div className="flex gap-4 min-w-max px-2">
-                    {/* Structures Group */}
-                    <div className="flex flex-col gap-2 border-r border-gray-300 pr-4">
-                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Structures</span>
-                      <div className="flex gap-1">
-                        {[
-                          { label: 'Fraction', cmd: '\\frac{\\square}{\\square}', icon: '\\frac{\\blacksquare}{\\square}' },
-                          { label: 'Power', cmd: '\\square^{\\square}', icon: '\\blacksquare^{n}' },
-                          { label: 'Derivative', cmd: '\\frac{d\\square}{d\\square}', icon: '\\frac{d}{dx}' },
-                          { label: 'Radical', cmd: '\\sqrt{\\square}', icon: '\\sqrt{\\blacksquare}' },
-                          { label: 'Integral', cmd: '\\int_{\\square}^{\\square} \\square d\\square', icon: '\\int' },
-                          { label: 'Sum', cmd: '\\sum_{\\square}^{\\square} \\square', icon: '\\sum' },
-                          { label: 'Product', cmd: '\\prod_{\\square}^{\\square} \\square', icon: '\\prod' },
-                          { label: 'Limit', cmd: '\\lim_{\\square \\to \\square} \\square', icon: '\\lim' },
-                          { label: 'Matrix', cmd: '\\begin{pmatrix} \\square & \\square \\\\ \\square & \\square \\end{pmatrix}', icon: '\\begin{pmatrix} \\cdot & \\cdot \\end{pmatrix}' },
-                          { label: 'Text', cmd: '\\text{\\square}', icon: '\\text{abc}' },
-                          { label: 'Box', cmd: '\\square', icon: '\\square' },
-                        ].map(item => (
-                          <Button 
-                            key={item.label} 
-                            variant="ghost" 
-                            className="h-12 w-12 p-0 flex flex-col bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all shadow-sm"
-                            onClick={() => insertAtCursor(item.cmd)}
-                            title={item.label}
-                          >
-                            <span className="text-[14px] h-2/3 flex items-center justify-center font-serif" dangerouslySetInnerHTML={{ __html: katex.renderToString(item.icon, { throwOnError: false, output: 'html', strict: false, trust: true, errorColor: '#2b579a' }) }} />
-                            <span className="text-[8px] opacity-60 h-1/3 leading-none">{item.label}</span>
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Basic Symbols Group */}
-                    <div className="flex flex-col gap-2 border-r border-gray-300 pr-4">
-                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Symbols</span>
-                      <div className="grid grid-cols-4 gap-1">
-                        {['\\pm', '\\neq', '\\approx', '\\cdot', '\\div', '\\times', '\\leq', '\\geq'].map(op => (
-                          <Button key={op} variant="ghost" className="h-6 w-8 p-0 bg-white border border-gray-100 hover:bg-blue-50" onClick={() => insertAtCursor(' ' + op)}>
-                             <span dangerouslySetInnerHTML={{ __html: katex.renderToString(op, { output: 'html', strict: false, trust: true }) }} />
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Greek Group */}
-                    <div className="flex flex-col gap-2 border-r border-gray-300 pr-4">
-                      <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Greek</span>
-                      <div className="grid grid-cols-5 gap-1">
-                        {['\\alpha', '\\beta', '\\pi', '\\lambda', '\\sigma', '\\theta', '\\delta', '\\mu', '\\omega', '\\gamma'].map(sym => (
-                          <Button key={sym} variant="ghost" className="h-6 w-6 p-0 bg-white border border-gray-100 hover:bg-blue-50" onClick={() => insertAtCursor(' ' + sym)}>
-                             <span dangerouslySetInnerHTML={{ __html: katex.renderToString(sym, { output: 'html', strict: false, trust: true }) }} />
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Functions Group */}
-                    <div className="flex flex-col gap-2">
-                       <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Functions</span>
-                       <div className="grid grid-cols-3 gap-1">
-                         {['\\sin', '\\cos', '\\tan', '\\log', '\\ln', '\\lim'].map(func => (
-                           <Button key={func} variant="ghost" className="h-6 px-2 text-[10px] bg-white border border-gray-100" onClick={() => insertAtCursor(func + '(x)')}>{func.replace('\\','')}</Button>
-                         ))}
-                       </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Main Workspace Area */}
-                <div className="flex flex-1 overflow-hidden">
-                  {/* Left Column: Editor & Formulas */}
-                  <div className="w-1/2 flex flex-col border-r border-gray-200">
-                    <div className="flex-1 p-4 flex flex-col">
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">LaTeX Editor</label>
-                        <Button variant="ghost" size="sm" className="h-5 text-[10px] text-gray-400 hover:text-red-500" onClick={() => setEquationLaTeX('')}>Clear All</Button>
-                      </div>
-                      <textarea 
-                        id="latex-editor"
-                        className="flex-1 w-full p-4 bg-white border border-gray-200 rounded-lg font-mono text-base focus:ring-2 focus:ring-[#2b579a] focus:border-transparent outline-none transition-all placeholder:text-gray-300 shadow-inner resize-none"
-                        value={equationLaTeX}
-                        inputMode="none"
-                        onChange={(e) => setEquationLaTeX(e.target.value)}
-                        onKeyDown={handleEditorTab}
-                        placeholder="Type LaTeX here..."
-                        autoFocus
-                      />
-                    </div>
-                    
-                    {/* Common Formulas Quick List */}
-                    <div className="p-4 bg-gray-50 border-t border-gray-200">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Preset Formulas</label>
-                      <div className="grid grid-cols-1 gap-2">
-                        {[
-                          { label: 'Quadratic Formula', cmd: 'x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}' },
-                          { label: 'Pythagorean Theorem', cmd: 'a^2 + b^2 = c^2' },
-                          { label: 'Euler\'s Identity', cmd: 'e^{i\\pi} + 1 = 0' }
-                        ].map(formula => (
-                          <Button 
-                            key={formula.label} 
-                            variant="outline" 
-                            className="bg-white justify-start h-8 text-[11px] px-3 font-medium text-gray-700 hover:text-[#2b579a] hover:bg-blue-50 border-gray-200"
-                            onClick={() => setEquationLaTeX(formula.cmd)}
-                          >
-                            {formula.label}
-                          </Button>
-                        ))}
-                      </div>
+              <button 
+                onClick={() => setIsEquationModalOpen(false)}
+                className="hover:bg-white/20 p-1 rounded-full transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            
+            <div className="flex flex-1 flex-col overflow-hidden">
+              {/* Horizontal Equation Ribbon */}
+              <div className="bg-gray-50 border-b border-gray-200 overflow-x-auto shrink-0 flex items-start gap-4 p-3 shadow-inner scrollbar-hide">
+                <div className="flex gap-4 min-w-max px-2">
+                  {/* Structures Group */}
+                  <div className="flex flex-col gap-2 border-r border-gray-300 pr-4">
+                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Structures</span>
+                    <div className="flex gap-1">
+                      {[
+                        { label: 'Fraction', cmd: '\\frac{\\square}{\\square}', icon: '\\frac{\\blacksquare}{\\square}' },
+                        { label: 'Power', cmd: '\\square^{\\square}', icon: '\\blacksquare^{n}' },
+                        { label: 'Derivative', cmd: '\\frac{d\\square}{d\\square}', icon: '\\frac{d}{dx}' },
+                        { label: 'Radical', cmd: '\\sqrt{\\square}', icon: '\\sqrt{\\blacksquare}' },
+                        { label: 'Integral', cmd: '\\int_{\\square}^{\\square} \\square d\\square', icon: '\\int' },
+                        { label: 'Sum', cmd: '\\sum_{\\square}^{\\square} \\square', icon: '\\sum' },
+                        { label: 'Product', cmd: '\\prod_{\\square}^{\\square} \\square', icon: '\\prod' },
+                        { label: 'Limit', cmd: '\\lim_{\\square \\to \\square} \\square', icon: '\\lim' },
+                        { label: 'Matrix', cmd: '\\begin{pmatrix} \\square & \\square \\\\ \\square & \\square \\end{pmatrix}', icon: '\\begin{pmatrix} \\cdot & \\cdot \\end{pmatrix}' },
+                        { label: 'Text', cmd: '\\text{\\square}', icon: '\\text{abc}' },
+                        { label: 'Box', cmd: '\\square', icon: '\\square' },
+                      ].map(item => (
+                        <Button 
+                          key={item.label} 
+                          variant="ghost" 
+                          className="h-12 w-12 p-0 flex flex-col bg-white border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all shadow-sm"
+                          onClick={() => insertAtCursor(item.cmd)}
+                          title={item.label}
+                        >
+                          <span className="text-[14px] h-2/3 flex items-center justify-center font-serif" dangerouslySetInnerHTML={{ __html: katex.renderToString(item.icon, { throwOnError: false, output: 'html', strict: false, trust: true, errorColor: '#2b579a' }) }} />
+                          <span className="text-[8px] opacity-60 h-1/3 leading-none">{item.label}</span>
+                        </Button>
+                      ))}
                     </div>
                   </div>
 
-                  {/* Right Column: Preview Area */}
-                  <div className="w-1/2 flex flex-col bg-gray-100 p-4">
-                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 block">Live Preview</label>
-                    <div className="flex-1 bg-white border border-gray-200 rounded-lg flex items-center justify-center p-8 overflow-auto shadow-sm relative">
-                       <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.4))] pointer-events-none" />
-                       <div 
-                         className="text-4xl text-[#2b579a] select-all transition-all duration-300"
-                         dangerouslySetInnerHTML={{ 
-                           __html: katex.renderToString(equationLaTeX || '\\text{Insert Symbols}', {
-                             throwOnError: false,
-                             displayMode: equationIsDisplayMode,
-                             output: 'html',
-                             errorColor: '#2b579a',
-                             strict: false,
-                             trust: true
-                           }) 
-                         }} 
-                       />
+                  {/* Basic Symbols Group */}
+                  <div className="flex flex-col gap-2 border-r border-gray-300 pr-4">
+                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Symbols</span>
+                    <div className="grid grid-cols-4 gap-1">
+                      {['\\pm', '\\neq', '\\approx', '\\cdot', '\\div', '\\times', '\\leq', '\\geq'].map(op => (
+                        <Button key={op} variant="ghost" className="h-6 w-8 p-0 bg-white border border-gray-100 hover:bg-blue-50" onClick={() => insertAtCursor(' ' + op)}>
+                           <span dangerouslySetInnerHTML={{ __html: katex.renderToString(op, { output: 'html', strict: false, trust: true }) }} />
+                        </Button>
+                      ))}
                     </div>
+                  </div>
+
+                  {/* Greek Group */}
+                  <div className="flex flex-col gap-2 border-r border-gray-300 pr-4">
+                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Greek</span>
+                    <div className="grid grid-cols-5 gap-1">
+                      {['\\alpha', '\\beta', '\\pi', '\\lambda', '\\sigma', '\\theta', '\\delta', '\\mu', '\\omega', '\\gamma'].map(sym => (
+                        <Button key={sym} variant="ghost" className="h-6 w-6 p-0 bg-white border border-gray-100 hover:bg-blue-50" onClick={() => insertAtCursor(' ' + sym)}>
+                           <span dangerouslySetInnerHTML={{ __html: katex.renderToString(sym, { output: 'html', strict: false, trust: true }) }} />
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Functions Group */}
+                  <div className="flex flex-col gap-2">
+                     <span className="text-[9px] font-bold text-gray-500 uppercase tracking-tighter">Functions</span>
+                     <div className="grid grid-cols-3 gap-1">
+                       {['\\sin', '\\cos', '\\tan', '\\log', '\\ln', '\\lim'].map(func => (
+                         <Button key={func} variant="ghost" className="h-6 px-2 text-[10px] bg-white border border-gray-100" onClick={() => insertAtCursor(func + '(x)')}>{func.replace('\\','')}</Button>
+                       ))}
+                     </div>
                   </div>
                 </div>
               </div>
 
-
-              <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center shrink-0">
-                <div className="text-[10px] text-gray-400 max-w-[60%]">
-                  Tip: Use backslash (\) for commands. Symbols added from the sidebar will appear at your cursor.
+              {/* Main Workspace Area */}
+              <div className="flex flex-1 overflow-hidden">
+                {/* Left Column: Editor & Formulas */}
+                <div className="w-1/2 flex flex-col border-r border-gray-200">
+                  <div className="flex-1 p-4 flex flex-col">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">LaTeX Editor</label>
+                      <Button variant="ghost" size="sm" className="h-5 text-[10px] text-gray-400 hover:text-red-500" onClick={() => setEquationLaTeX('')}>Clear All</Button>
+                    </div>
+                    <textarea 
+                      id="latex-editor"
+                      className="flex-1 w-full p-4 bg-white border border-gray-200 rounded-lg font-mono text-base focus:ring-2 focus:ring-[#2b579a] focus:border-transparent outline-none transition-all placeholder:text-gray-300 shadow-inner resize-none"
+                      value={equationLaTeX}
+                      inputMode="none"
+                      onChange={(e) => setEquationLaTeX(e.target.value)}
+                      onKeyDown={handleEditorTab}
+                      placeholder="Type LaTeX here..."
+                      autoFocus
+                    />
+                  </div>
+                  
+                  {/* Common Formulas Quick List */}
+                  <div className="p-4 bg-gray-50 border-t border-gray-200">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Preset Formulas</label>
+                    <div className="grid grid-cols-1 gap-2">
+                      {[
+                        { label: 'Quadratic Formula', cmd: 'x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}' },
+                        { label: 'Pythagorean Theorem', cmd: 'a^2 + b^2 = c^2' },
+                        { label: 'Euler\'s Identity', cmd: 'e^{i\\pi} + 1 = 0' }
+                      ].map(formula => (
+                        <Button 
+                          key={formula.label} 
+                          variant="outline" 
+                          className="bg-white justify-start h-8 text-[11px] px-3 font-medium text-gray-700 hover:text-[#2b579a] hover:bg-blue-50 border-gray-200"
+                          onClick={() => setEquationLaTeX(formula.cmd)}
+                        >
+                          {formula.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex bg-gray-200 rounded-lg p-1">
-                    <button 
-                      className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${!equationIsDisplayMode ? 'bg-white text-[#2b579a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                      onClick={() => setEquationIsDisplayMode(false)}
-                    >Inline</button>
-                    <button 
-                      className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${equationIsDisplayMode ? 'bg-white text-[#2b579a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-                      onClick={() => setEquationIsDisplayMode(true)}
-                    >Display (Centered)</button>
+
+                {/* Right Column: Preview Area */}
+                <div className="w-1/2 flex flex-col bg-gray-100 p-4">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 block">Live Preview</label>
+                  <div className="flex-1 bg-white border border-gray-200 rounded-lg flex items-center justify-center p-8 overflow-auto shadow-sm relative">
+                     <div className="absolute inset-0 bg-grid-slate-100 [mask-image:linear-gradient(0deg,#fff,rgba(255,255,255,0.4))] pointer-events-none" />
+                     <div 
+                       className="text-4xl text-[#2b579a] select-all transition-all duration-300"
+                       dangerouslySetInnerHTML={{ 
+                         __html: katex.renderToString(equationLaTeX || '\\text{Insert Symbols}', {
+                           throwOnError: false,
+                           displayMode: equationIsDisplayMode,
+                           output: 'html',
+                           errorColor: '#2b579a',
+                           strict: false,
+                           trust: true
+                         }) 
+                       }} 
+                     />
                   </div>
-                  <div className="flex gap-3">
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => setIsEquationModalOpen(false)}
-                      className="text-gray-600 font-medium"
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleConfirmEquation}
-                      className="bg-[#2b579a] hover:bg-[#1e3a63] text-white px-10 font-semibold shadow-lg active:scale-95 transition-all text-sm h-10"
-                    >
-                      {editingEquationNode ? 'Save Changes' : 'Insert into Document'}
-                    </Button>
-                  </div>
-                  {editingEquationNode && (
-                    <Button 
-                      variant="outline" 
-                      className="text-red-500 border-red-200 hover:bg-red-50 ml-4"
-                      onClick={() => {
-                        editingEquationNode.remove();
-                        setIsEquationModalOpen(false);
-                      }}
-                    >
-                      Delete Equation
-                    </Button>
-                  )}
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Status Bar - Hidden on very short screens (landscape mobile) */}
-        <div className="hidden min-h-[400px]:block">
-          <StatusBar content={pages.join('')} saveStatus={saveStatus} />
+
+            <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center shrink-0">
+              <div className="text-[10px] text-gray-400 max-w-[60%]">
+                Tip: Use backslash (\) for commands. Symbols added from the sidebar will appear at your cursor.
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex bg-gray-200 rounded-lg p-1">
+                  <button 
+                    className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${!equationIsDisplayMode ? 'bg-white text-[#2b579a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    onClick={() => setEquationIsDisplayMode(false)}
+                  >Inline</button>
+                  <button 
+                    className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all ${equationIsDisplayMode ? 'bg-white text-[#2b579a] shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    onClick={() => setEquationIsDisplayMode(true)}
+                  >Display (Centered)</button>
+                </div>
+                <div className="flex gap-3">
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => setIsEquationModalOpen(false)}
+                    className="text-gray-600 font-medium"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleConfirmEquation}
+                    className="bg-[#2b579a] hover:bg-[#1e3a63] text-white px-10 font-semibold shadow-lg active:scale-95 transition-all text-sm h-10"
+                  >
+                    {editingEquationNode ? 'Save Changes' : 'Insert into Document'}
+                  </Button>
+                </div>
+                {editingEquationNode && (
+                  <Button 
+                    variant="outline" 
+                    className="text-red-500 border-red-200 hover:bg-red-50 ml-4"
+                    onClick={() => {
+                      editingEquationNode.remove();
+                      setIsEquationModalOpen(false);
+                    }}
+                  >
+                    Delete Equation
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
       )}
     </TooltipProvider>
+    </div>
   );
 }

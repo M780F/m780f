@@ -122,10 +122,6 @@ export const Editor = forwardRef<any, EditorProps>(({
 
           <div
             ref={(el) => {
-              if (index === 0 && ref) {
-                if (typeof ref === 'function') ref(el);
-                else (ref as any).current = el;
-              }
               pageRefs.current[index] = el;
             }}
             id={`page-editor-${index}`}

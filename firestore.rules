@@ -1,0 +1,61 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(resourceData) {
+      return isSignedIn() && resourceData.userId == request.auth.uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Entity validation
+    function isValidDocument(data) {
+      return data.userId is string && data.userId == request.auth.uid
+          && data.title is string && data.title.size() <= 200
+          && data.pages is list && data.pages.size() <= 200
+          && (data.pages.size() == 0 || data.pages[0] is string)
+          && (!data.keys().contains('headerContent') || data.headerContent is string)
+          && (!data.keys().contains('footerContent') || data.footerContent is string)
+          && data.updatedAt == request.time
+          && data.createdAt is timestamp;
+    }
+
+    match /documents/{docId} {
+      allow get: if isOwner(existing());
+      
+      allow list: if isSignedIn() 
+                  && resource.data.userId == request.auth.uid;
+
+      allow create: if isSignedIn() 
+                    && isValidId(docId)
+                    && isValidDocument(incoming())
+                    && incoming().createdAt == request.time;
+
+      allow update: if isOwner(existing())
+                    && isValidDocument(incoming())
+                    && incoming().userId == existing().userId
+                    && incoming().createdAt == existing().createdAt;
+
+      allow delete: if isOwner(existing());
+    }
+  }
+}

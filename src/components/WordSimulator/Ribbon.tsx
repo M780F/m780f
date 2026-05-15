@@ -17,6 +17,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+import { User } from 'firebase/auth';
+
 interface ActiveStyles {
   bold: boolean;
   italic: boolean;
@@ -40,6 +42,9 @@ interface RibbonProps {
   onToggleCollapse: () => void;
   hasSelectedImage?: boolean;
   activeStyles: ActiveStyles;
+  onOpenDocuments: () => void;
+  user: User | null;
+  activeDocTitle: string;
 }
 
 export const Ribbon: React.FC<RibbonProps> = ({ 
@@ -48,7 +53,10 @@ export const Ribbon: React.FC<RibbonProps> = ({
   isCollapsed = false, 
   onToggleCollapse,
   hasSelectedImage = false,
-  activeStyles
+  activeStyles,
+  onOpenDocuments,
+  user,
+  activeDocTitle
 }) => {
   const [activeTab, setActiveTab] = React.useState('home');
   const [showBackstage, setShowBackstage] = React.useState(false);
@@ -82,7 +90,7 @@ export const Ribbon: React.FC<RibbonProps> = ({
 
   const handleTabClick = (tab: string) => {
     if (tab === 'file') {
-      handleBackstageToggle(true);
+      onOpenDocuments();
     } else {
       setActiveTab(tab);
     }
@@ -241,7 +249,7 @@ export const Ribbon: React.FC<RibbonProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <FileText size={12} className="text-blue-200" />
-                <span className="font-bold tracking-tight">Document1 - Word Simulator</span>
+                <span className="font-bold tracking-tight">{activeDocTitle} - Word Simulator</span>
               </div>
             </div>
             <div className="flex items-center gap-1 opacity-80">
@@ -285,9 +293,11 @@ export const Ribbon: React.FC<RibbonProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center text-[9px] font-bold">MA</div>
-              <span>Mustafa</span>
+            <div className="flex items-center gap-2 cursor-pointer hover:bg-white/10 px-2 py-1 rounded transition-colors" onClick={onOpenDocuments}>
+              <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center text-[9px] font-bold">
+                {user ? user.email?.[0].toUpperCase() : '?'}
+              </div>
+              <span className="max-w-[80px] truncate">{user ? user.displayName || user.email : 'Sign In'}</span>
             </div>
           </div>
         </div>
