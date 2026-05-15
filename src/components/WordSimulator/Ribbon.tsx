@@ -90,7 +90,7 @@ export const Ribbon: React.FC<RibbonProps> = ({
 
   const handleTabClick = (tab: string) => {
     if (tab === 'file') {
-      onOpenDocuments();
+      handleBackstageToggle(true);
     } else {
       setActiveTab(tab);
     }
@@ -124,6 +124,16 @@ export const Ribbon: React.FC<RibbonProps> = ({
               >
                 <FilePlus size={20} />
                 <span className="hidden sm:inline">New</span>
+              </button>
+              <button 
+                onClick={() => {
+                  handleBackstageToggle(false);
+                  onOpenDocuments();
+                }}
+                className="flex items-center gap-4 px-4 py-3 hover:bg-white/10 transition-colors"
+              >
+                <Layers size={20} />
+                <span className="hidden sm:inline">Cloud Documents</span>
               </button>
               <button 
                 onClick={(e) => handleFormatClick(e as any, 'openBrowser')}
@@ -164,7 +174,7 @@ export const Ribbon: React.FC<RibbonProps> = ({
           <div className="flex-1 bg-[#f3f2f1] overflow-y-auto p-4 sm:p-12">
             <div className="max-w-5xl mx-auto">
               <header className="mb-12">
-                <h1 className="text-3xl font-light text-gray-800 mb-2">Good morning, Mustafa</h1>
+                <h1 className="text-3xl font-light text-gray-800 mb-2">Good morning, {user?.displayName || user?.email?.split('@')[0] || 'Guest'}</h1>
                 <p className="text-gray-500">Welcome to Word Simulator. Create or resume your work.</p>
               </header>
 

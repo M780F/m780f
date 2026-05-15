@@ -335,7 +335,10 @@ export default function App() {
     // Commands that don't need editor focus
     if (command === 'exportPDF') {
       const element = editorObj.root;
-      if (!element) return;
+      if (!element) {
+        console.error('Editor root not found');
+        return;
+      }
       
       setIsExporting(true);
       
@@ -343,74 +346,105 @@ export default function App() {
       setTimeout(async () => {
         let cloneContainer: HTMLDivElement | null = null;
         try {
-          // Create a clean container
+          // Create a clean container for export
           cloneContainer = document.createElement('div');
-          cloneContainer.style.position = 'fixed';
-          cloneContainer.style.top = '-9999px';
+          cloneContainer.style.position = 'absolute';
           cloneContainer.style.left = '-9999px';
-          cloneContainer.style.width = '816px';
-          cloneContainer.style.background = 'white';
+          cloneContainer.style.top = '0';
+          cloneContainer.style.width = '816px'; // Standard US Letter width in px at 96dpi
+          cloneContainer.style.backgroundColor = '#ffffff';
           document.body.appendChild(cloneContainer);
 
-          // Clone only the pages, not the entire UI
+          // Clone only the pages
           const pagesElements = element.querySelectorAll('.pdf-page');
-          if (pagesElements.length === 0) throw new Error('No pages found to export');
+          if (pagesElements.length === 0) {
+            throw new Error('No pages found to export. Make sure your document has content.');
+          }
 
-          pagesElements.forEach((pageEl: any) => {
+          // Process each page
+          for (let i = 0; i < pagesElements.length; i++) {
+            const pageEl = pagesElements[i] as HTMLElement;
             const pageClone = pageEl.cloneNode(true) as HTMLElement;
+            
+            // Prepare clone for PDF: remove all interactive UI/shadows/borders
             pageClone.style.boxShadow = 'none';
             pageClone.style.border = 'none';
-            pageClone.style.margin = '0';
+            pageClone.style.margin = '0 auto';
             pageClone.style.width = '816px';
-            pageClone.style.maxWidth = '816px';
-            pageClone.style.padding = '1in';
+            pageClone.style.minHeight = '1056px';
+            pageClone.style.padding = '1in'; // Standard Word margins
             pageClone.style.display = 'block';
+            pageClone.style.position = 'relative';
+            pageClone.style.backgroundColor = '#ffffff';
             pageClone.style.pageBreakAfter = 'always';
+            pageClone.style.overflow = 'hidden';
             
-            // Remove any dashed borders or UI helpers
-            const helpers = pageClone.querySelectorAll('.border-dashed, .cursor-pointer, .absolute');
+            // Force fonts to be specific for PDF consistency
+            pageClone.style.fontFamily = isArabic ? "'Arial', sans-serif" : "'Times New Roman', serif";
+            
+            // Clean up UI helpers in the clone
+            const helpers = pageClone.querySelectorAll('.border-dashed, .cursor-pointer, .absolute, .group\\/header, .group\\/footer');
             helpers.forEach((h: any) => {
-              // Keep text content but remove styling that might look like UI
               if (h.classList.contains('border-dashed')) h.style.border = 'none';
-              if (h.classList.contains('absolute') && (h.textContent === 'Header' || h.textContent === 'Footer')) {
+              
+              // Hide labels like "Header" or "Footer" or navigation helpers
+              if (h.textContent === 'Header' || h.textContent === 'Footer') {
                 h.style.display = 'none';
               }
+              
+              // Remove resizable handles from images
+              if (h.classList.contains('resize-handle')) {
+                h.remove();
+              }
+            });
+
+            // Ensure images are fully visible
+            const images = pageClone.querySelectorAll('img');
+            images.forEach((img: any) => {
+              img.style.maxWidth = '100%';
+              img.style.height = 'auto';
             });
             
-            cloneContainer?.appendChild(pageClone);
-          });
+            cloneContainer.appendChild(pageClone);
+          }
 
+          const docTitle = documents.find(d => d.id === activeDocId)?.title || 'document';
+          
           const opt = {
-            margin:       0,
-            filename:     `${documents.find(d => d.id === activeDocId)?.title || 'document'}.pdf`,
-            image:        { type: 'jpeg', quality: 0.95 },
-            html2canvas:  { 
-              scale: 1.5,
+            margin: 0,
+            filename: `${docTitle}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { 
+              scale: 2, // Higher scale for better quality
               useCORS: true,
               logging: false,
-              scrollY: 0,
-              windowWidth: 816,
               letterRendering: true,
-              imageTimeout: 15000,
-              removeContainer: true
+              allowTaint: false,
+              backgroundColor: '#ffffff'
             },
-            jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait', compress: true },
-            pagebreak:    { mode: 'css', after: '.pdf-page' }
+            jsPDF: { 
+              unit: 'in', 
+              format: 'letter', 
+              orientation: 'portrait',
+              compress: true
+            },
+            pagebreak: { mode: 'css', after: '.pdf-page' }
           };
-
+ 
+          // Use the worker interface for better control
           // @ts-ignore
           await html2pdf().from(cloneContainer).set(opt).save();
           
         } catch (err: any) {
           console.error('PDF Export Error:', err);
-          alert('Could not generate PDF. If your document is very long or has large images, try splitting it or using smaller images.');
+          alert(`Failed to export PDF: ${err.message || 'Unknown error'}. Try reducing image sizes or splitting the document.`);
         } finally {
           if (cloneContainer && cloneContainer.parentNode) {
             document.body.removeChild(cloneContainer);
           }
           setIsExporting(false);
         }
-      }, 500);
+      }, 300);
       return;
     }
 
@@ -439,6 +473,54 @@ export default function App() {
     
     if (command === 'fontSize') {
       applyModernFontSize(value || '3');
+    } else if (command === 'insertImage') {
+      imageInputRef.current?.click();
+    } else if (command === 'insertFile') {
+      fileInputRef.current?.click();
+    } else if (command === 'insertEquation') {
+      setEditingEquationNode(null);
+      setEquationLaTeX('\\sigma = \\sqrt{\\frac{1}{N} \\sum_{i=1}^N (x_i - \\mu)^2}');
+      setEquationIsDisplayMode(false);
+      setIsEquationModalOpen(true);
+    } else if (command === 'insertTable') {
+      const rows = 3;
+      const cols = 3;
+      let tableHtml = '<table style="width:100%; border-collapse:collapse; border:1px solid #ccc; margin:10px 0;">';
+      for (let i = 0; i < rows; i++) {
+        tableHtml += '<tr>';
+        for (let j = 0; j < cols; j++) {
+          tableHtml += '<td style="border:1px solid #ccc; padding:8px; min-height:20px;">&nbsp;</td>';
+        }
+        tableHtml += '</tr>';
+      }
+      tableHtml += '</table><p>&nbsp;</p>';
+      document.execCommand('insertHTML', false, tableHtml);
+    } else if (command === 'lineHeight') {
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        let node = selection.anchorNode as Node | null;
+        // Move up to the closest block element or LI
+        while (node && !editorObj.root?.contains(node)) {
+          if (node.nodeType === 1 && (['P', 'DIV', 'H1', 'H2', 'H3', 'LI'].includes((node as HTMLElement).tagName))) {
+            (node as HTMLElement).style.lineHeight = value || '1.2';
+            break;
+          }
+          node = node.parentNode;
+        }
+      }
+    } else if (command === 'orderedListType') {
+      document.execCommand('insertOrderedList', false);
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        let node = selection.anchorNode as Node | null;
+        while (node && !editorObj.root?.contains(node)) {
+          if (node.nodeName === 'OL') {
+            (node as HTMLElement).style.listStyleType = value || 'decimal';
+            break;
+          }
+          node = node.parentNode;
+        }
+      }
     } else if (command === 'formatBlock') {
       document.execCommand('formatBlock', false, value);
     } else if (command === 'fontName') {
@@ -447,6 +529,43 @@ export default function App() {
       document.execCommand('foreColor', false, value);
     } else if (command === 'hiliteColor') {
       document.execCommand('hiliteColor', false, value);
+    } else if (command === 'saveDoc') {
+      // Offline save as HTML (Word 97-style HTML)
+      const docTitle = documents.find(d => d.id === activeDocId)?.title || 'document';
+      const content = pages.map((p, i) => `
+        <div class="page" data-page-index="${i}" style="min-height: 1056px; width: 816px; margin: 20px auto; padding: 1in; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); font-family: 'Times New Roman', serif;">
+          ${p}
+        </div>
+      `).join('');
+      
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>${docTitle}</title>
+          <style>
+            body { font-family: Arial, sans-serif; background: #e6e6e6; }
+            @media print {
+              body { background: white; }
+              .page { margin: 0; box-shadow: none; page-break-after: always; }
+            }
+          </style>
+        </head>
+        <body>
+          ${content}
+        </body>
+        </html>
+      `;
+      
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${docTitle}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
     } else if (command === 'undo') {
       document.execCommand('undo', false);
     } else if (command === 'redo') {
@@ -918,14 +1037,17 @@ export default function App() {
           setSelectedImage(currentElement);
         }
         
-        // Ensure positioning
-        if (window.getComputedStyle(currentElement).position !== 'absolute') {
+        // Ensure positioning relative to the page
+        const pageNode = currentElement.closest('.pdf-page') as HTMLElement;
+        if (pageNode && window.getComputedStyle(currentElement).position !== 'absolute') {
           const rect = currentElement.getBoundingClientRect();
-          const parentRect = editor.getBoundingClientRect();
+          const parentRect = pageNode.getBoundingClientRect();
+          
           currentElement.style.position = 'absolute';
           currentElement.style.left = `${rect.left - parentRect.left}px`;
           currentElement.style.top = `${rect.top - parentRect.top}px`;
           currentElement.style.margin = '0';
+          currentElement.style.zIndex = '10';
         }
         
         startLeft = parseFloat(currentElement.style.left) || 0;
