@@ -156,6 +156,13 @@ export const Ribbon: React.FC<RibbonProps> = ({
                 <FileDown size={20} />
                 <span className="hidden sm:inline">Export PDF</span>
               </button>
+              <button 
+                 onClick={(e) => handleFormatClick(e as any, 'print')}
+                 className="flex items-center gap-4 px-4 py-3 hover:bg-white/10 transition-colors"
+              >
+                <Printer size={20} />
+                <span className="hidden sm:inline">Print / Save to Phone</span>
+              </button>
               
               <div className="h-[1px] bg-white/20 my-2 mx-4 hidden sm:block"></div>
               
@@ -596,7 +603,7 @@ export const Ribbon: React.FC<RibbonProps> = ({
                       <FileDown size={18} className="text-[#2b579a]" />
                       <span className="text-[9px] sm:text-[11px]">PDF</span>
                     </Button>
-                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50">
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'print')}>
                       <Printer size={18} className="text-[#2b579a]" />
                       <span className="text-[9px] sm:text-[11px]">Print</span>
                     </Button>
@@ -676,9 +683,9 @@ export const Ribbon: React.FC<RibbonProps> = ({
                       <Layers size={18} className="text-[#2b579a]" />
                       <span className="text-[9px] sm:text-[11px]">Inline</span>
                     </Button>
-                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'imageWrap', 'block')}>
+                    <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'imageWrap', 'absolute')}>
                       <Layout size={18} className="text-[#2b579a]" />
-                      <span className="text-[9px] sm:text-[11px]">Block</span>
+                      <span className="text-[9px] sm:text-[11px]">In Front</span>
                     </Button>
                     <Button variant="ghost" className="flex flex-col h-10 w-12 sm:h-14 sm:w-14 gap-0 sm:gap-1 p-1 hover:bg-blue-50" onMouseDown={(e) => handleFormatClick(e, 'imageWrap', 'float-left')}>
                       <Grid size={18} className="text-[#2b579a]" />

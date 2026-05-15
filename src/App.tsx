@@ -10,7 +10,7 @@ import { DocumentSidebar } from './components/WordSimulator/DocumentSidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'motion/react';
-import { FileText, LogIn, LogOut, FolderOpen, Plus, Trash2, FileEdit } from 'lucide-react';
+import { FileText, LogIn, LogOut, FolderOpen, Plus, Trash2, FileEdit, Layout } from 'lucide-react';
 import { auth, signInWithGoogle } from './lib/firebase';
 import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { documentService, WordDocument } from './services/documentService';
@@ -26,6 +26,8 @@ export default function App() {
   const [isRibbonCollapsed, setIsRibbonCollapsed] = useState(false);
   const [isArabic, setIsArabic] = useState(false);
   const [selectedImage, setSelectedImage] = useState<HTMLElement | null>(null);
+  const [showLayoutOptions, setShowLayoutOptions] = useState(false);
+  const [layoutOptionsPos, setLayoutOptionsPos] = useState({ top: 0, left: 0 });
   const [isEquationModalOpen, setIsEquationModalOpen] = useState(false);
   const [equationLaTeX, setEquationLaTeX] = useState('\\alpha^2 + \\beta^2 = \\gamma^2');
   const [equationIsDisplayMode, setEquationIsDisplayMode] = useState(false);
@@ -276,13 +278,18 @@ export default function App() {
     return () => document.removeEventListener('selectionchange', updateActiveStyles);
   }, []);
 
+  // Update floating menu on scroll
   useEffect(() => {
-    // Add/remove selection class on previous and new selected image
-    const wrappers = document.querySelectorAll('.image-wrapper');
-    wrappers.forEach(w => w.classList.remove('selected'));
-    if (selectedImage) {
-      selectedImage.classList.add('selected');
-    }
+    const handleScroll = () => {
+      if (selectedImage) {
+        const rect = selectedImage.getBoundingClientRect();
+        setLayoutOptionsPos({ top: rect.top, left: rect.left + rect.width });
+      }
+    };
+    
+    const workspace = document.querySelector('.flex-1.overflow-y-auto');
+    workspace?.addEventListener('scroll', handleScroll);
+    return () => workspace?.removeEventListener('scroll', handleScroll);
   }, [selectedImage]);
   const editorRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -411,26 +418,34 @@ export default function App() {
           const docTitle = documents.find(d => d.id === activeDocId)?.title || 'document';
           
           const opt = {
-            margin: 0,
+            margin: 0.2, // Small margin to prevent clipping
             filename: `${docTitle}.pdf`,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { 
-              scale: 2, // Higher scale for better quality
+              scale: 2,
               useCORS: true,
               logging: false,
               letterRendering: true,
               allowTaint: false,
-              backgroundColor: '#ffffff'
+              backgroundColor: '#ffffff',
+              imageTimeout: 15000
             },
             jsPDF: { 
               unit: 'in', 
               format: 'letter', 
               orientation: 'portrait',
-              compress: true
+              compress: true,
+              precision: 16
             },
-            pagebreak: { mode: 'css', after: '.pdf-page' }
+            pagebreak: { mode: ['css', 'legacy'], after: '.pdf-page' }
           };
  
+          // Check if library is available
+          // @ts-ignore
+          if (typeof html2pdf === 'undefined') {
+            throw new Error('PDF export library failed to load. Please try printing to PDF instead.');
+          }
+
           // Use the worker interface for better control
           // @ts-ignore
           await html2pdf().from(cloneContainer).set(opt).save();
@@ -521,6 +536,10 @@ export default function App() {
           node = node.parentNode;
         }
       }
+    } else if (command === 'print') {
+      // PDF export is sometimes blocked or slow on mobile, print is a reliable fallback
+      window.print();
+      return;
     } else if (command === 'formatBlock') {
       document.execCommand('formatBlock', false, value);
     } else if (command === 'fontName') {
@@ -743,7 +762,7 @@ export default function App() {
         selectedImage.remove();
         setSelectedImage(null);
         break;
-      case 'imageWrap':
+    case 'imageWrap':
         if (value === 'inline') {
           selectedImage.style.position = 'relative';
           selectedImage.style.display = 'inline-block';
@@ -751,13 +770,8 @@ export default function App() {
           selectedImage.style.margin = '10px';
           selectedImage.style.left = 'auto';
           selectedImage.style.top = 'auto';
-        } else if (value === 'block') {
-          selectedImage.style.position = 'relative';
-          selectedImage.style.display = 'block';
-          selectedImage.style.float = 'none';
-          selectedImage.style.margin = '20px auto';
-          selectedImage.style.left = 'auto';
-          selectedImage.style.top = 'auto';
+          selectedImage.style.zIndex = 'auto';
+          selectedImage.setAttribute('data-layout', 'inline');
         } else if (value === 'float-left') {
           selectedImage.style.position = 'relative';
           selectedImage.style.display = 'inline-block';
@@ -765,6 +779,8 @@ export default function App() {
           selectedImage.style.margin = '10px 20px 10px 0';
           selectedImage.style.left = 'auto';
           selectedImage.style.top = 'auto';
+          selectedImage.style.zIndex = 'auto';
+          selectedImage.setAttribute('data-layout', 'float');
         } else if (value === 'float-right') {
           selectedImage.style.position = 'relative';
           selectedImage.style.display = 'inline-block';
@@ -772,6 +788,13 @@ export default function App() {
           selectedImage.style.margin = '10px 0 10px 20px';
           selectedImage.style.left = 'auto';
           selectedImage.style.top = 'auto';
+          selectedImage.style.zIndex = 'auto';
+          selectedImage.setAttribute('data-layout', 'float');
+        } else if (value === 'absolute' || value === 'block') {
+          // 'block' in our context meant centered absolute or floating
+          selectedImage.style.position = 'absolute';
+          selectedImage.style.zIndex = '10';
+          selectedImage.setAttribute('data-layout', 'absolute');
         }
         break;
     }
@@ -943,7 +966,7 @@ export default function App() {
         ? "display: block; text-align: center; width: 100%; margin: 1.5em 0; padding: 12px; background: rgba(43, 87, 154, 0.02); border-radius: 8px; cursor: pointer; transition: all 0.2s; user-select: all; outline: none; border: 1px solid transparent; position: relative;"
         : "display: inline-block; padding: 4px 8px; background: rgba(43, 87, 154, 0.02); cursor: pointer; margin: 0 4px; vertical-align: middle; transition: all 0.2s; user-select: all; border-radius: 4px; outline: none; border: 1px solid transparent; position: relative;";
       
-      const equationHtml = `<span class="equation-wrapper" data-latex="${equationLaTeX.replace(/"/g, '&quot;')}" data-display="${equationIsDisplayMode}" contenteditable="false" draggable="true" role="math" aria-label="Equation: ${equationLaTeX.replace(/"/g, '&quot;')}" style="${style}" tabindex="0" onmouseover="this.style.borderColor='rgba(43, 87, 154, 0.3)'; this.style.background='rgba(43, 87, 154, 0.05)'" onmouseout="if(document.activeElement !== this) { this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)' }" onfocus="this.style.borderColor='#2b579a'; this.style.background='rgba(43, 87, 154, 0.1)'; this.style.boxShadow='0 0 0 2px rgba(43, 87, 154, 0.2)'" onblur="this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)'; this.style.boxShadow='none'">${renderedHtml}</span>&nbsp;`;
+      const equationHtml = `<span class="equation-wrapper" data-latex="${equationLaTeX.replace(/"/g, '&quot;')}" data-display="${equationIsDisplayMode}" contenteditable="false" draggable="true" role="math" aria-label="Equation: ${equationLaTeX.replace(/"/g, '&quot;')}" style="${style}" tabindex="0" onmouseover="this.style.borderColor='rgba(43, 87, 154, 0.3)'; this.style.background='rgba(43, 87, 154, 0.05)'" onmouseout="if(document.activeElement !== this) { this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)' }" onfocus="this.style.borderColor='#2b579a'; this.style.background='rgba(43, 87, 154, 0.1)'; this.style.boxShadow='0 0 0 2px rgba(43, 87, 154, 0.2)'" onblur="this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)'; this.style.boxShadow='none'">${renderedHtml}</span>`;
       document.execCommand('insertHTML', false, equationHtml);
     }
     
@@ -1033,21 +1056,30 @@ export default function App() {
         startX = e.clientX;
         startY = e.clientY;
         
-        if (currentElement.classList.contains('image-wrapper')) {
-          setSelectedImage(currentElement);
-        }
+        // This triggers the layout menu for both images and equations
+        setSelectedImage(currentElement);
         
-        // Ensure positioning relative to the page
-        const pageNode = currentElement.closest('.pdf-page') as HTMLElement;
-        if (pageNode && window.getComputedStyle(currentElement).position !== 'absolute') {
+        const isAbsolute = currentElement.style.position === 'absolute' || currentElement.getAttribute('data-layout') === 'absolute';
+        
+        // If it's absolute, we can move it freely. 
+        // If it's inline, we only allow dragging if the user starts dragging it (Word-like behavior)
+        if (isAbsolute) {
+          // Already absolute, just record start positions
+        } else {
+          // If dragging an inline element, temporarily make it absolute to move it freely
+          // but we should ideally have a way to "drop" it back into text. 
+          // For now, let's follow standard Word behavior: once you move it "freely", it's absolute (Fix position).
           const rect = currentElement.getBoundingClientRect();
-          const parentRect = pageNode.getBoundingClientRect();
-          
-          currentElement.style.position = 'absolute';
-          currentElement.style.left = `${rect.left - parentRect.left}px`;
-          currentElement.style.top = `${rect.top - parentRect.top}px`;
-          currentElement.style.margin = '0';
-          currentElement.style.zIndex = '10';
+          const pageNode = currentElement.closest('.pdf-page') as HTMLElement;
+          if (pageNode) {
+            const parentRect = pageNode.getBoundingClientRect();
+            currentElement.style.position = 'absolute';
+            currentElement.style.left = `${rect.left - parentRect.left}px`;
+            currentElement.style.top = `${rect.top - parentRect.top}px`;
+            currentElement.style.margin = '0';
+            currentElement.style.zIndex = '10';
+            currentElement.setAttribute('data-layout', 'absolute');
+          }
         }
         
         startLeft = parseFloat(currentElement.style.left) || 0;
@@ -1067,6 +1099,10 @@ export default function App() {
           const deltaX = e.clientX - startX;
           const newWidth = Math.max(50, startWidth + deltaX);
           img.style.width = `${newWidth}px`;
+          
+          // Update menu pos
+          const rect = currentElement.getBoundingClientRect();
+          setLayoutOptionsPos({ top: rect.top, left: rect.left + rect.width });
         }
       } else if (isDragging && currentElement) {
         const deltaX = e.clientX - startX;
@@ -1077,6 +1113,10 @@ export default function App() {
         currentElement.style.left = `${startLeft + deltaX}px`;
         currentElement.style.top = `${startTop + deltaY}px`;
         currentElement.style.zIndex = '10';
+
+        // Update menu pos
+        const rect = currentElement.getBoundingClientRect();
+        setLayoutOptionsPos({ top: rect.top, left: rect.left + rect.width });
       }
     };
 
@@ -1237,6 +1277,91 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Layout Options Floating Menu */}
+      {selectedImage && (
+        <div 
+          className="fixed z-[100] flex flex-col items-center gap-1"
+          style={{ 
+            top: `${layoutOptionsPos.top}px`, 
+            left: `${layoutOptionsPos.left + 5}px` 
+          }}
+        >
+          <Button 
+            variant="secondary" 
+            size="icon" 
+            className="h-8 w-8 rounded-full shadow-lg bg-white border border-gray-200 text-[#2b579a] hover:bg-blue-50"
+            onClick={() => setShowLayoutOptions(!showLayoutOptions)}
+            title="Layout Options"
+          >
+            <Layout size={16} />
+          </Button>
+
+          <AnimatePresence>
+            {showLayoutOptions && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, x: 10 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.9, x: 10 }}
+                className="absolute left-10 top-0 bg-white border border-gray-200 rounded-lg shadow-2xl p-3 w-48 flex flex-col gap-3"
+              >
+                <div className="flex justify-between items-center border-b border-gray-100 pb-2">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Layout Options</span>
+                  <button onClick={() => setShowLayoutOptions(false)} className="text-gray-400 hover:text-gray-600"><Trash2 size={12} /></button>
+                </div>
+                
+                <div className="flex flex-col gap-2">
+                  <span className="text-[9px] font-semibold text-gray-400 uppercase">In Line with Text</span>
+                  <button 
+                    onClick={() => handleFormat('imageWrap', 'inline')}
+                    className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 text-xs text-gray-700"
+                  >
+                    <div className="w-8 h-8 border border-gray-200 rounded flex flex-col justify-center gap-1 p-1">
+                      <div className="w-full h-0.5 bg-gray-200" />
+                      <div className="w-1/2 h-1 bg-blue-500 rounded-sm mx-auto" />
+                      <div className="w-full h-0.5 bg-gray-200" />
+                    </div>
+                    <span>In line with text</span>
+                  </button>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-[9px] font-semibold text-gray-400 uppercase">With Text Wrapping</span>
+                  <div className="grid grid-cols-3 gap-1">
+                    {[
+                      { id: 'float-left', label: 'Square Left', icon: 'M4 4h4v4H4z M10 5h10M10 7h10M4 10h16' },
+                      { id: 'block', label: 'Center / Absolute', icon: 'M8 4h8v4H8z M4 10h16M4 12h16' },
+                      { id: 'float-right', label: 'Square Right', icon: 'M16 4h4v4h-4z M4 5h10M4 7h10M4 10h16' },
+                    ].map(opt => (
+                      <button 
+                        key={opt.id}
+                        onClick={() => handleFormat('imageWrap', opt.id)}
+                        className="p-1 border border-gray-100 hover:border-blue-300 hover:bg-blue-50 rounded flex flex-col items-center gap-1"
+                        title={opt.label}
+                      >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2b579a" strokeWidth="1">
+                          <path d={opt.icon} />
+                        </svg>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1 border-t border-gray-100 pt-2">
+                   <label className="flex items-center gap-2 text-[10px] text-gray-600 cursor-pointer">
+                     <input type="radio" checked={selectedImage.style.position === 'absolute'} readOnly />
+                     Fix position on page
+                   </label>
+                   <label className="flex items-center gap-2 text-[10px] text-gray-600 cursor-pointer opacity-50">
+                     <input type="radio" checked={selectedImage.style.position !== 'absolute'} readOnly />
+                     Move with text
+                   </label>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
 
       <AnimatePresence>
         {isExporting && (
