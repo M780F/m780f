@@ -729,34 +729,35 @@ export default function App() {
   const handleImageFormat = (command: string, value?: string) => {
     if (!selectedImage) return;
     const img = selectedImage.querySelector('img');
-    if (!img) return;
 
     switch (command) {
       case 'imageShape':
-        if (value === 'circle') {
-          img.style.borderRadius = '50%';
-          img.style.aspectRatio = '1/1';
-          img.style.objectFit = 'cover';
-          img.style.filter = 'none';
-        } else if (value === 'rounded') {
-          img.style.borderRadius = '20px';
-          img.style.aspectRatio = 'auto';
-          img.style.filter = 'none';
-        } else if (value === 'soft') {
-          img.style.borderRadius = '0px';
-          img.style.filter = 'blur(4px)';
-          img.style.aspectRatio = 'auto';
-        } else {
-          img.style.borderRadius = '0px';
-          img.style.aspectRatio = 'auto';
-          img.style.filter = 'none';
+        if (img) {
+          if (value === 'circle') {
+            img.style.borderRadius = '50%';
+            img.style.aspectRatio = '1/1';
+            img.style.objectFit = 'cover';
+            img.style.filter = 'none';
+          } else if (value === 'rounded') {
+            img.style.borderRadius = '20px';
+            img.style.aspectRatio = 'auto';
+            img.style.filter = 'none';
+          } else if (value === 'soft') {
+            img.style.borderRadius = '0px';
+            img.style.filter = 'blur(4px)';
+            img.style.aspectRatio = 'auto';
+          } else {
+            img.style.borderRadius = '0px';
+            img.style.aspectRatio = 'auto';
+            img.style.filter = 'none';
+          }
         }
         break;
       case 'imageShadow':
-        img.style.boxShadow = value === 'none' ? 'none' : '0 10px 25px -5px rgba(0,0,0,0.3)';
+        if (img) img.style.boxShadow = value === 'none' ? 'none' : '0 10px 25px -5px rgba(0,0,0,0.3)';
         break;
       case 'imageBorder':
-        img.style.border = value === 'none' ? 'none' : `4px solid ${value}`;
+        if (img) img.style.border = value === 'none' ? 'none' : `4px solid ${value}`;
         break;
       case 'imageDelete':
         selectedImage.remove();
@@ -791,11 +792,29 @@ export default function App() {
           selectedImage.style.zIndex = 'auto';
           selectedImage.setAttribute('data-layout', 'float');
         } else if (value === 'absolute' || value === 'block') {
-          // 'block' in our context meant centered absolute or floating
+          // If switching to absolute, try to catch current position
+          if (selectedImage.style.position !== 'absolute') {
+            const rect = selectedImage.getBoundingClientRect();
+            const pageNode = selectedImage.closest('.pdf-page') as HTMLElement;
+            if (pageNode) {
+              const parentRect = pageNode.getBoundingClientRect();
+              selectedImage.style.left = `${rect.left - parentRect.left}px`;
+              selectedImage.style.top = `${rect.top - parentRect.top}px`;
+            }
+          }
           selectedImage.style.position = 'absolute';
+          selectedImage.style.display = 'block';
+          selectedImage.style.float = 'none';
+          selectedImage.style.margin = '0';
           selectedImage.style.zIndex = '10';
           selectedImage.setAttribute('data-layout', 'absolute');
         }
+        
+        // Force state update to refresh menu position
+        setTimeout(() => {
+          const rect = selectedImage.getBoundingClientRect();
+          setLayoutOptionsPos({ top: rect.top, left: rect.left + rect.width });
+        }, 50);
         break;
     }
   };
@@ -809,9 +828,9 @@ export default function App() {
         editorRef.current?.focus();
         // Insert image with a wrapper for better control and resizing handles simulation
         const imgHtml = `
-          <div class="image-wrapper" style="display: inline-block; position: relative; margin: 10px; cursor: move; user-select: none; max-width: 100%; transition: all 0.3s;" contenteditable="false">
+          <div class="image-wrapper" style="display: inline-block; position: relative; margin: 10px; cursor: move; user-select: none; max-width: 100%; transition: all 0.3s; touch-action: none;" contenteditable="false">
             <img src="${dataUrl}" style="display: block; width: 200px; height: auto; pointer-events: none; border-radius: 0;" />
-            <div class="resize-handle" style="position: absolute; bottom: -5px; right: -5px; width: 24px; height: 24px; background: #2b579a; cursor: nwse-resize; border-radius: 4px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"></div>
+            <div class="resize-handle" style="position: absolute; bottom: -5px; right: -5px; width: 24px; height: 24px; background: #2b579a; cursor: nwse-resize; border-radius: 4px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); touch-action: none;"></div>
           </div>
           <p contenteditable="true">&nbsp;</p>
         `;
@@ -966,7 +985,7 @@ export default function App() {
         ? "display: block; text-align: center; width: 100%; margin: 1.5em 0; padding: 12px; background: rgba(43, 87, 154, 0.02); border-radius: 8px; cursor: pointer; transition: all 0.2s; user-select: all; outline: none; border: 1px solid transparent; position: relative;"
         : "display: inline-block; padding: 4px 8px; background: rgba(43, 87, 154, 0.02); cursor: pointer; margin: 0 4px; vertical-align: middle; transition: all 0.2s; user-select: all; border-radius: 4px; outline: none; border: 1px solid transparent; position: relative;";
       
-      const equationHtml = `<span class="equation-wrapper" data-latex="${equationLaTeX.replace(/"/g, '&quot;')}" data-display="${equationIsDisplayMode}" contenteditable="false" draggable="true" role="math" aria-label="Equation: ${equationLaTeX.replace(/"/g, '&quot;')}" style="${style}" tabindex="0" onmouseover="this.style.borderColor='rgba(43, 87, 154, 0.3)'; this.style.background='rgba(43, 87, 154, 0.05)'" onmouseout="if(document.activeElement !== this) { this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)' }" onfocus="this.style.borderColor='#2b579a'; this.style.background='rgba(43, 87, 154, 0.1)'; this.style.boxShadow='0 0 0 2px rgba(43, 87, 154, 0.2)'" onblur="this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)'; this.style.boxShadow='none'">${renderedHtml}</span>`;
+      const equationHtml = `<span class="equation-wrapper" data-latex="${equationLaTeX.replace(/"/g, '&quot;')}" data-display="${equationIsDisplayMode}" contenteditable="false" draggable="true" role="math" aria-label="Equation: ${equationLaTeX.replace(/"/g, '&quot;')}" style="${style}; touch-action: none;" tabindex="0" onmouseover="this.style.borderColor='rgba(43, 87, 154, 0.3)'; this.style.background='rgba(43, 87, 154, 0.05)'" onmouseout="if(document.activeElement !== this) { this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)' }" onfocus="this.style.borderColor='#2b579a'; this.style.background='rgba(43, 87, 154, 0.1)'; this.style.boxShadow='0 0 0 2px rgba(43, 87, 154, 0.2)'" onblur="this.style.borderColor='transparent'; this.style.background='rgba(43, 87, 154, 0.02)'; this.style.boxShadow='none'">${renderedHtml}</span>`;
       document.execCommand('insertHTML', false, equationHtml);
     }
     
@@ -1063,12 +1082,8 @@ export default function App() {
         
         // If it's absolute, we can move it freely. 
         // If it's inline, we only allow dragging if the user starts dragging it (Word-like behavior)
-        if (isAbsolute) {
-          // Already absolute, just record start positions
-        } else {
+        if (!isAbsolute) {
           // If dragging an inline element, temporarily make it absolute to move it freely
-          // but we should ideally have a way to "drop" it back into text. 
-          // For now, let's follow standard Word behavior: once you move it "freely", it's absolute (Fix position).
           const rect = currentElement.getBoundingClientRect();
           const pageNode = currentElement.closest('.pdf-page') as HTMLElement;
           if (pageNode) {
@@ -1079,9 +1094,13 @@ export default function App() {
             currentElement.style.margin = '0';
             currentElement.style.zIndex = '10';
             currentElement.setAttribute('data-layout', 'absolute');
+            
+            // Also need to set display to block to prevent inline behavioral weirdness
+            currentElement.style.display = 'block';
           }
         }
         
+        // CRITICAL: Grab start positions AFTER the absolute transformation if it happened
         startLeft = parseFloat(currentElement.style.left) || 0;
         startTop = parseFloat(currentElement.style.top) || 0;
         
