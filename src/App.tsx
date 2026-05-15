@@ -1023,126 +1023,147 @@ export default function App() {
     }
   };
 
+  // Stable dragging refs to prevent state loss on re-renders
+  const dragInfo = useRef({
+    isDragging: false,
+    isResizing: false,
+    startX: 0,
+    startY: 0,
+    startWidth: 0,
+    startHeight: 0,
+    startTop: 0,
+    startLeft: 0,
+    currentElement: null as HTMLElement | null
+  });
+
   useEffect(() => {
     const editorObj = editorRef.current as any;
     const editor = editorObj?.root;
     if (!editor) return;
 
-    let isResizing = false;
-    let isDragging = false;
-    let currentElement: HTMLElement | null = null;
-    let startX = 0;
-    let startY = 0;
-    let startWidth = 0;
-    let startLeft = 0;
-    let startTop = 0;
-
-    const handlePointerDown = (e: PointerEvent) => {
+    const handleStart = (e: any) => {
       const target = e.target as HTMLElement;
       
-      // Handle Equation Focusing (for deletion/keyboard)
+      // Handle Equation Focusing
       const equationNode = target.closest('.equation-wrapper') as HTMLElement;
       if (equationNode) {
         (equationNode as HTMLElement).focus();
-        // Don't return yet, allow dragging logic below
       }
 
-      // Clear selection if clicking elsewhere in editor
       if (target === editor) {
         setSelectedImage(null);
         return;
       }
 
-      // Handle Resizing
-      if (target.classList.contains('resize-handle')) {
-        isResizing = true;
-        currentElement = target.parentElement;
-        if (currentElement) {
-          const img = currentElement.querySelector('img');
-          if (img) {
-            startWidth = img.offsetWidth;
-            startX = e.clientX;
-            setSelectedImage(currentElement);
-            e.preventDefault();
-            e.stopPropagation();
-          }
-        }
-      } 
-      // Handle Dragging
-      else if (target.closest('.image-wrapper') || target.closest('.equation-wrapper')) {
-        isDragging = true;
-        currentElement = (target.closest('.image-wrapper') || target.closest('.equation-wrapper')) as HTMLElement;
-        startX = e.clientX;
-        startY = e.clientY;
-        
-        // This triggers the layout menu for both images and equations
-        setSelectedImage(currentElement);
-        
-        const isAbsolute = currentElement.style.position === 'absolute' || currentElement.getAttribute('data-layout') === 'absolute';
-        
-        // If it's absolute, we can move it freely. 
-        // If it's inline, we only allow dragging if the user starts dragging it (Word-like behavior)
-        if (!isAbsolute) {
-          // If dragging an inline element, temporarily make it absolute to move it freely
-          const rect = currentElement.getBoundingClientRect();
-          const pageNode = currentElement.closest('.pdf-page') as HTMLElement;
-          if (pageNode) {
-            const parentRect = pageNode.getBoundingClientRect();
-            currentElement.style.position = 'absolute';
-            currentElement.style.left = `${rect.left - parentRect.left}px`;
-            currentElement.style.top = `${rect.top - parentRect.top}px`;
-            currentElement.style.margin = '0';
-            currentElement.style.zIndex = '10';
-            currentElement.setAttribute('data-layout', 'absolute');
-            
-            // Also need to set display to block to prevent inline behavioral weirdness
-            currentElement.style.display = 'block';
-          }
-        }
-        
-        // CRITICAL: Grab start positions AFTER the absolute transformation if it happened
-        startLeft = parseFloat(currentElement.style.left) || 0;
-        startTop = parseFloat(currentElement.style.top) || 0;
-        
-        e.preventDefault();
-        e.stopPropagation();
-      } else {
+      const wrapper = target.closest('.image-wrapper, .equation-wrapper') as HTMLElement;
+      const isHandle = target.classList.contains('resize-handle');
+      
+      if (!wrapper && !isHandle) {
         setSelectedImage(null);
+        return;
       }
-    };
 
-    const handlePointerMove = (e: PointerEvent) => {
-      if (isResizing && currentElement) {
-        const img = currentElement.querySelector('img');
-        if (img) {
-          const deltaX = e.clientX - startX;
-          const newWidth = Math.max(50, startWidth + deltaX);
-          img.style.width = `${newWidth}px`;
-          
-          // Update menu pos
-          const rect = currentElement.getBoundingClientRect();
-          setLayoutOptionsPos({ top: rect.top, left: rect.left + rect.width });
+      const actualWrapper = isHandle ? target.parentElement! as HTMLElement : wrapper!;
+      const eventPos = e.touches ? e.touches[0] : e;
+      
+      dragInfo.current = {
+        isDragging: !isHandle,
+        isResizing: isHandle,
+        startX: eventPos.clientX,
+        startY: eventPos.clientY,
+        currentElement: actualWrapper,
+        startWidth: 0,
+        startHeight: 0,
+        startTop: 0,
+        startLeft: 0
+      };
+
+      const info = dragInfo.current;
+      setSelectedImage(actualWrapper);
+
+      // Free movement conversion
+      const isAbsolute = actualWrapper.style.position === 'absolute' || actualWrapper.getAttribute('data-layout') === 'absolute';
+      if (!isAbsolute && !isHandle) {
+        const rect = actualWrapper.getBoundingClientRect();
+        const pageNode = actualWrapper.closest('.pdf-page') as HTMLElement;
+        if (pageNode) {
+          const parentRect = pageNode.getBoundingClientRect();
+          actualWrapper.style.position = 'absolute';
+          actualWrapper.style.left = `${rect.left - parentRect.left}px`;
+          actualWrapper.style.top = `${rect.top - parentRect.top}px`;
+          actualWrapper.style.margin = '0';
+          actualWrapper.style.zIndex = '10';
+          actualWrapper.style.display = 'block';
+          actualWrapper.setAttribute('data-layout', 'absolute');
         }
-      } else if (isDragging && currentElement) {
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-        
-        // Use absolute positioning for free movement
-        currentElement.style.position = 'absolute';
-        currentElement.style.left = `${startLeft + deltaX}px`;
-        currentElement.style.top = `${startTop + deltaY}px`;
-        currentElement.style.zIndex = '10';
-
-        // Update menu pos
-        const rect = currentElement.getBoundingClientRect();
-        setLayoutOptionsPos({ top: rect.top, left: rect.left + rect.width });
       }
+
+      info.startLeft = parseFloat(actualWrapper.style.left) || 0;
+      info.startTop = parseFloat(actualWrapper.style.top) || 0;
+      
+      const img = actualWrapper.querySelector('img');
+      if (img) {
+        info.startWidth = img.offsetWidth;
+        info.startHeight = img.offsetHeight;
+      } else {
+        info.startWidth = actualWrapper.offsetWidth;
+        info.startHeight = actualWrapper.offsetHeight;
+      }
+
+      const rect = actualWrapper.getBoundingClientRect();
+      setLayoutOptionsPos({ top: rect.top, left: rect.left + rect.width });
+
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
     };
 
-    const handlePointerUp = () => {
-      isResizing = false;
-      isDragging = false;
-      currentElement = null;
+    const handleMove = (e: any) => {
+      const info = dragInfo.current;
+      if (!info.currentElement) return;
+
+      const eventPos = e.touches ? e.touches[0] : e;
+      const deltaX = eventPos.clientX - info.startX;
+      const deltaY = eventPos.clientY - info.startY;
+
+      if (info.isResizing) {
+        const img = info.currentElement.querySelector('img');
+        if (img) {
+          img.style.width = `${Math.max(50, info.startWidth + deltaX)}px`;
+        } else {
+          info.currentElement.style.width = `${Math.max(50, info.startWidth + deltaX)}px`;
+        }
+      } else if (info.isDragging) {
+        info.currentElement.style.left = `${info.startLeft + deltaX}px`;
+        info.currentElement.style.top = `${info.startTop + deltaY}px`;
+      }
+
+      const rect = info.currentElement.getBoundingClientRect();
+      setLayoutOptionsPos({ top: rect.top, left: rect.left + rect.width });
+      
+      if (e.cancelable) e.preventDefault();
+    };
+
+    const handleEnd = () => {
+      dragInfo.current.currentElement = null;
+      dragInfo.current.isDragging = false;
+      dragInfo.current.isResizing = false;
+    };
+
+    editor.addEventListener('mousedown', handleStart);
+    document.addEventListener('mousemove', handleMove);
+    document.addEventListener('mouseup', handleEnd);
+    
+    editor.addEventListener('touchstart', handleStart, { passive: false });
+    document.addEventListener('touchmove', handleMove as any, { passive: false });
+    document.addEventListener('touchend', handleEnd);
+
+    const cleanup = () => {
+      editor.removeEventListener('mousedown', handleStart);
+      document.removeEventListener('mousemove', handleMove);
+      document.removeEventListener('mouseup', handleEnd);
+      editor.removeEventListener('touchstart', handleStart);
+      document.removeEventListener('touchmove', handleMove as any);
+      document.removeEventListener('touchend', handleEnd);
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1178,17 +1199,13 @@ export default function App() {
       }
     };
 
-    editor.addEventListener('pointerdown', handlePointerDown);
     editor.addEventListener('dblclick', handleDoubleClick as any);
     editor.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
 
     return () => {
-      editor.removeEventListener('pointerdown', handlePointerDown);
+      cleanup();
+      editor.removeEventListener('dblclick', handleDoubleClick as any);
       editor.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
     };
   }, []);
 
